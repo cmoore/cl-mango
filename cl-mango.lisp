@@ -28,7 +28,7 @@
 
   (defparameter *mango-method* nil)
 
-  (drakma:*text-content-types* (list (cons "application" "json"))))
+  (setf drakma:*text-content-types* (list (cons "application" "json"))))
 
 (defmacro make-couchdb-request (path &key (parameters nil) (content nil))
   `(labels ((make-request-uri (req-path)
