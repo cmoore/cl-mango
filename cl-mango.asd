@@ -7,6 +7,5 @@
   :serial t
   :depends-on (#:drakma
                #:yason)
-  :components ((:file "package")
-               (:file "cl-mango")))
+  :components ((:file "cl-mango")))
 
