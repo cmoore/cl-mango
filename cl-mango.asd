@@ -8,6 +8,5 @@
   :depends-on (#:drakma
                #:yason
                #:json-mop)
-  :components ((:file "package")
-               (:file "cl-mango")))
+  :components ((:file "cl-mango")))
 
