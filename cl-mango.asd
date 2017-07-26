@@ -6,7 +6,8 @@
   :license "BSD"
   :serial t
   :depends-on (#:drakma
-               #:yason)
+               #:yason
+               #:json-mop)
   :components ((:file "package")
                (:file "cl-mango")))
 
