@@ -63,7 +63,8 @@
                       :connection-timeout 60
                       ,@(when parameters `(:parameters ,parameters))
                       ,@(when content `(:content ,content)))))
-       (cond ((equal (type-of response) '(simple-vector 2)) (flexi-streams:octets-to-string response))
+       (cond ((or (equal (type-of response) '(simple-vector 2))
+                  (equal (type-of response) '(simple-vector 8))) (flexi-streams:octets-to-string response))
              (t response)))))
 
 (defun doc-put (db bundle)
