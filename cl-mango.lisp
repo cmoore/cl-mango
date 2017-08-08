@@ -33,7 +33,8 @@
   (defparameter *mango-username* nil)
   (defparameter *mango-password* nil)
 
-  (setf drakma:*text-content-types* (list (cons "application" "json")))
+  (setf drakma:*text-content-types* (list (cons "application" "json")
+                                          "text"))
 
   (defun symb (a b)
     (intern (format nil "~a-~a" (symbol-name a) (symbol-name b)))))
@@ -63,9 +64,11 @@
                       :connection-timeout 60
                       ,@(when parameters `(:parameters ,parameters))
                       ,@(when content `(:content ,content)))))
-       (cond ((or (equal (type-of response) '(simple-vector 2))
-                  (equal (type-of response) '(simple-vector 8))) (flexi-streams:octets-to-string response))
-             (t response)))))
+       response
+       ;; (cond ((or (equal (type-of response) '(simple-vector 2))
+       ;;            (equal (type-of response) '(simple-vector 8))) (flexi-streams:octets-to-string response))
+       ;;       (t response))
+       )))
 
 (defun doc-put (db bundle)
   (make-couchdb-request (format nil "/~a" db)
