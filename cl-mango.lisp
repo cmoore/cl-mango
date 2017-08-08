@@ -34,7 +34,7 @@
   (defparameter *mango-password* nil)
 
   (setf drakma:*text-content-types* (list (cons "application" "json")
-                                          "text"))
+                                          (cons "text")))
 
   (defun symb (a b)
     (intern (format nil "~a-~a" (symbol-name a) (symbol-name b)))))
@@ -49,26 +49,23 @@
 (defmacro make-couchdb-request (path &key (parameters nil) (content nil) (method :get))
   `(labels ()
      
-     (let ((response (drakma:http-request
-                      (make-request-uri ,path)
-                      :additional-headers (list
-                                           (cons "Accept" "application/json"))
-                      :content-type "application/json"
-                      :method ,method
-                      ,@(when (and (not (null *mango-username*))
-                                   (not (null *mango-password*)))
-                          `(:basic-authorization (list *mango-username* *mango-password*)))
-                      :preserve-uri t
-                      :external-format-in :utf8
-                      :external-format-out :utf8
-                      :connection-timeout 60
-                      ,@(when parameters `(:parameters ,parameters))
-                      ,@(when content `(:content ,content)))))
-       response
-       ;; (cond ((or (equal (type-of response) '(simple-vector 2))
-       ;;            (equal (type-of response) '(simple-vector 8))) (flexi-streams:octets-to-string response))
-       ;;       (t response))
-       )))
+     (let ((stream (drakma:http-request (make-request-uri ,path)
+                                        :additional-headers (list
+                                                             (cons "Accept" "application/json"))
+                                        :content-type "application/json"
+                                        :method ,method
+                                        ,@(when (and (not (null *mango-username*))
+                                                     (not (null *mango-password*)))
+                                            `(:basic-authorization (list *mango-username* *mango-password*)))
+                                        :preserve-uri t
+                                        :want-stream t
+                                        :external-format-in :utf8
+                                        :external-format-out :utf8
+                                        :connection-timeout 60
+                                        ,@(when parameters `(:parameters ,parameters))
+                                        ,@(when content `(:content ,content)))))
+       (setf (flexi-streams:flexi-stream-external-format stream) :utf-8)
+       (yason:parse stream))))
 
 (defun doc-put (db bundle)
   (make-couchdb-request (format nil "/~a" db)
@@ -110,10 +107,10 @@
 
 
 (defun class-ify-couch-response (bundle class &key (doc-name "docs"))
-  (check-type bundle string)
+  (check-type bundle hash-table)
   (mapcar #'(lambda (doc)
               (json-mop:json-to-clos doc class))
-          (gethash doc-name (yason:parse bundle))))
+          (gethash doc-name bundle)))
 
 (defun mango-get-all (db class)
   (check-type class symbol)
