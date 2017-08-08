@@ -33,9 +33,6 @@
   (defparameter *mango-username* nil)
   (defparameter *mango-password* nil)
 
-  (setf drakma:*text-content-types* (list (cons "application" "json")
-                                          (cons "text")))
-
   (defun symb (a b)
     (intern (format nil "~a-~a" (symbol-name a) (symbol-name b)))))
 
