@@ -27,17 +27,16 @@
 (in-package #:cl-mango)
 
 (eval-when (:compile-toplevel :load-toplevel)
+  (defparameter *mango-host* nil)
+  (defparameter *mango-port* nil)
+  (defparameter *mango-scheme* :http)
+  (defparameter *mango-username* nil)
+  (defparameter *mango-password* nil)
 
   (setf drakma:*text-content-types* (list (cons "application" "json")))
 
   (defun symb (a b)
     (intern (format nil "~a-~a" (symbol-name a) (symbol-name b)))))
-
-(defparameter *mango-host* nil)
-(defparameter *mango-port* nil)
-(defparameter *mango-scheme* :http)
-(defparameter *mango-username* nil)
-(defparameter *mango-password* nil)
 
 (defun make-request-uri (req-path)
     (with-output-to-string (sink)
