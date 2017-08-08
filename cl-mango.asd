@@ -7,7 +7,7 @@
   :serial t
   :depends-on (#:drakma
                #:yason
-               #:json-mop
-               #:cl-rabbit)
+               #:json-mop)
+  
   :components ((:file "cl-mango")))
 
