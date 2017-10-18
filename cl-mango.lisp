@@ -2,7 +2,8 @@
 
 (defpackage #:cl-mango
   (:use #:cl
-        #:json-mop)
+        #:json-mop
+        #:log4cl)
   (:nicknames "mango")
   (:import-from :alexandria :hash-table-keys
                 :alist-hash-table)
