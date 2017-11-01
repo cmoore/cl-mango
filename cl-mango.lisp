@@ -69,11 +69,7 @@
          (error 'mango-unexpected-http-response
                 :status-code status)
          
-         body
-         ;; (cond ((or (equal (type-of response) '(simple-vector 2))
-         ;;            (equal (type-of response) '(simple-vector 8))) (flexi-streams:octets-to-string response))
-         ;;       (t response))
-         )))
+         body)))
 
 
 
@@ -101,19 +97,16 @@
                         :method :delete))
 
 (defmacro make-selector (selector &key (limit 100) fields sort skip)
-  (let ((the-request (gensym)))
-    `(let ((,the-request (with-output-to-string (sink)
-                           (yason:encode (alist-hash-table (list (cons "limit" ,limit)
-                                                                 ,@(when skip
-                                                                     `((cons "skip" ,skip)))
-                                                                 ,@(when sort
-                                                                     `((cons "sort" ,sort)))
-                                                                 ,@(when fields
-                                                                     `((cons "fields" ,fields)))
-                                                                 (cons "selector" (alist-hash-table ,selector))))
-                                         sink))))
-       (log:info ,the-request)
-       ,the-request)))
+  `(with-output-to-string (sink)
+     (yason:encode (alist-hash-table (list (cons "limit" ,limit)
+                                           ,@(when skip
+                                               `((cons "skip" ,skip)))
+                                           ,@(when sort
+                                               `((cons "sort" ,sort)))
+                                           ,@(when fields
+                                               `((cons "fields" ,fields)))
+                                           (cons "selector" (alist-hash-table ,selector))))
+                   sink)))
 
 
 (defun class-ify-couch-response (bundle class &key (doc-name "docs"))
