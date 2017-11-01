@@ -47,14 +47,19 @@
                                                 :path req-path) sink)))
 
 (define-condition mango-unexpected-http-response ()
-  ((status-code :initform nil :initarg :status-code)))
+  ((status-code :initform nil :initarg :status-code)
+   (body :initform nil :initarg :status-body)))
 
-(defmacro make-couchdb-request (path &key (parameters nil) (content nil) (method :get))
+(defmacro make-couchdb-request (path &key
+                                       (parameters nil)
+                                       (content nil)
+                                       (method :get)
+                                       (content-type "application/json")
+                                       (accept "application/json"))
   `(multiple-value-bind (body status)
        (drakma:http-request (make-request-uri ,path)
-                            :additional-headers (list
-                                                 (cons "Accept" "application/json"))
-                            :content-type "application/json"
+                            :accept ,accept
+                            :content-type ,content-type
                             :method ,method
                             ,@(when (and (not (null *mango-username*))
                                          (not (null *mango-password*)))
@@ -67,11 +72,10 @@
                             ,@(when content `(:content ,content)))
      (if (not (member status (list 200 201)))
          (error 'mango-unexpected-http-response
-                :status-code status)
+                :status-code status
+                :status-body body)
          
          body)))
-
-
 
 (defun doc-put (db bundle)
   (make-couchdb-request (format nil "/~a" db)
@@ -85,7 +89,7 @@
   (make-couchdb-request (format nil "/~a/~a" db docid)))
 
 (defun doc-find (db query)
-  (make-couchdb-request (format nil "/~a/_find" db)
+  (unsafe-make-couchdb-request (format nil "/~a/_find" db)
                         :method :post
                         :content query))
 
@@ -107,7 +111,6 @@
                                                `((cons "fields" ,fields)))
                                            (cons "selector" (alist-hash-table ,selector))))
                    sink)))
-
 
 (defun class-ify-couch-response (bundle class &key (doc-name "docs"))
   (check-type bundle string)
@@ -133,10 +136,11 @@
                                    (json-mop:encode object sink))))
 
 (defmacro defmango (name slot-definitions)
-  (let* ((exports (mapcan (lambda (spec)
-                            (let ((name (getf (cdr spec) :accessor)))
-                              (list name)))
-                          slot-definitions))
+  (let* (
+         ;; (exports (mapcan (lambda (spec)
+         ;;                    (let ((name (getf (cdr spec) :accessor)))
+         ;;                      (list name)))
+         ;;                  slot-definitions))
          (name-string (format nil "~a" name))
          (name-symbol (intern (symbol-name name)))
          (name-db-name (string-downcase name-string)))
@@ -152,46 +156,43 @@
                            ,@slot-definitions)
          (:metaclass json-serializable-class))
 
-       (export ',(symb name 'id))
-       (export ',(symb name 'rev))
+       ;; (export ',(symb name 'id))
+       ;; (export ',(symb name 'rev))
        
-       ,@(mapcar (lambda (name) `(export ',name))
-                 exports)
+       ;; ,@(mapcar (lambda (name) `(export ',name))
+       ;;           exports)
 
        (defun ,(symb name 'get-all) ()
          (mapcar #'(lambda (doc)
                      (json-mop:json-to-clos (gethash "doc" doc) ',name-symbol))
                  (gethash "rows" (yason:parse (doc-get-all ,name-db-name)))))
-       (export ',(symb name 'get-all))
+;;       (export ',(symb name 'get-all))
        
        (defun ,(symb name 'put) (object)
          (mango-update ,name-db-name object))
-       (export ',(symb name 'put))
+;;       (export ',(symb name 'put))
        
        (defun ,(symb name 'update) (object)
          (mango-update ,name-db-name object))
-       (export ',(symb name 'update))
+;;       (export ',(symb name 'update))
        
        (defmacro ,(symb name 'find-explicit) (query &rest args)
          `(class-ify-couch-response
            (doc-find ,(string-downcase ,name-string) (make-selector ,query ,@args))
            ',',name-symbol))
-       (export ',(symb name 'find-explicit))
+       ;;(export ',(symb name 'find-explicit))
        
        (defun ,(symb name 'find) (query)
          (mango-find ,name-db-name ',name-symbol query))
-       (export ',(symb name 'find))
+       ;;(export ',(symb name 'find))
        
        (defun ,(symb name 'delete) (object)
          (doc-delete ,name-db-name (,(symb name :id) object) (,(symb name :rev) object)))
-       (export ',(symb name 'delete))
+       ;; (export ',(symb name 'delete))
 
        (defmacro ,(symb name 'create) (&rest args)
          (let ((new-name (gensym)))
            `(let ((,new-name (make-instance ',',name-symbol ,@args)))
               (,',(symb name :put) ,new-name))))
-       (export ',(symb name 'create))
-       
-       ,@ (mapcar (lambda (name)
-                    `(export ',name))
-                  exports))))
+       ;; (export ',(symb name 'create))
+       )))
