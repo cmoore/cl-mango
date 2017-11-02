@@ -14,15 +14,22 @@
            *mango-password*
            
            #:doc-put
+           #:doc-batch-put
+           
            #:doc-get
            #:doc-find
            #:doc-get-all
-
+           #:doc-delete
+           
            #:mango-get-all
            #:mango-find
            #:mango-update
            #:make-selector
+           
+           #:make-couchdb-request
 
+           #:send-json
+           
            #:defmango))
 
 (in-package #:cl-mango)
@@ -49,6 +56,11 @@
 (define-condition mango-unexpected-http-response ()
   ((status-code :initform nil :initarg :status-code)
    (body :initform nil :initarg :status-body)))
+
+(defmacro send-json (&rest body)
+  (alexandria:with-gensyms (sink)
+    `(with-output-to-string (,sink)
+       (yason:encode ,@body ,sink))))
 
 (defmacro make-couchdb-request (path &key
                                        (parameters nil)
@@ -77,6 +89,11 @@
          
          body)))
 
+(defun doc-batch-put (db bundle)
+  (make-couchdb-request (format nil "/~a?batch=ok" db)
+                        :method :post
+                        :content bundle))
+
 (defun doc-put (db bundle)
   (make-couchdb-request (format nil "/~a" db)
                         :method :post
@@ -89,7 +106,7 @@
   (make-couchdb-request (format nil "/~a/~a" db docid)))
 
 (defun doc-find (db query)
-  (unsafe-make-couchdb-request (format nil "/~a/_find" db)
+  (make-couchdb-request (format nil "/~a/_find" db)
                         :method :post
                         :content query))
 
