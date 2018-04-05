@@ -20,6 +20,8 @@
            #:doc-find
            #:doc-get-all
            #:doc-delete
+
+           #:query-view
            
            #:mango-get-all
            #:mango-find
@@ -30,7 +32,9 @@
 
            #:send-json
            
-           #:defmango))
+           #:defmango
+
+           #:mango-unexpected-http-response))
 
 (in-package #:cl-mango)
 
@@ -54,8 +58,9 @@
                                                 :path req-path) sink)))
 
 (define-condition mango-unexpected-http-response ()
-  ((status-code :initform nil :initarg :status-code)
-   (body :initform nil :initarg :status-body)))
+  ((status-code :initform nil :initarg :status-code :reader status-code)
+   (status-body :initform nil :initarg :body :reader status-body))
+  (:report (lambda (condition stream) (format stream "~a ~a" (status-code condition) (status-body condition)))))
 
 (defmacro send-json (&rest body)
   (alexandria:with-gensyms (sink)
@@ -67,7 +72,8 @@
                                        (content nil)
                                        (method :get)
                                        (content-type "application/json")
-                                       (accept "application/json"))
+                                       (accept "application/json")
+                                       (preserve-uri))
   `(multiple-value-bind (body status)
        (drakma:http-request (make-request-uri ,path)
                             :accept ,accept
@@ -76,7 +82,7 @@
                             ,@(when (and (not (null *mango-username*))
                                          (not (null *mango-password*)))
                                 `(:basic-authorization (list *mango-username* *mango-password*)))
-                            :preserve-uri t
+                            ,@(when preserve-uri `(:preserve-uri t))
                             :external-format-in :utf8
                             :external-format-out :utf8
                             :connection-timeout 60
@@ -85,8 +91,7 @@
      (if (not (member status (list 200 201)))
          (error 'mango-unexpected-http-response
                 :status-code status
-                :status-body body)
-         
+                :body body)
          body)))
 
 (defun doc-batch-put (db bundle)
@@ -99,8 +104,9 @@
                         :method :post
                         :content bundle))
 
-(defun query-view (db view index)
-  (make-couchdb-request (format nil "/~a/_design/~a/_view/~a" db view index)))
+(defmacro query-view (db view index &key parameters)
+  `(make-couchdb-request (format nil "/~a/_design/~a/_view/~a" ,db ,view ,index)
+                         ,@(when parameters `(:parameters ,parameters))))
 
 (defun doc-get (db docid)
   (make-couchdb-request (format nil "/~a/~a" db docid)))
@@ -152,15 +158,10 @@
                         :content (with-output-to-string (sink)
                                    (json-mop:encode object sink))))
 
-(defmacro defmango (name slot-definitions)
-  (let* (
-         ;; (exports (mapcan (lambda (spec)
-         ;;                    (let ((name (getf (cdr spec) :accessor)))
-         ;;                      (list name)))
-         ;;                  slot-definitions))
-         (name-string (format nil "~a" name))
+(defmacro defmango (name database slot-definitions)
+  (let* ((name-string (format nil "~a" name))
          (name-symbol (intern (symbol-name name)))
-         (name-db-name (string-downcase name-string)))
+         (name-db-name (string-downcase database)))
     `(progn
        (defclass ,name () ((id :initarg :id
                                :json-type :string
@@ -170,46 +171,42 @@
                                 :json-type :string
                                 :json-key "_rev"
                                 :accessor ,(symb name :rev))
+                           (type :initarg :type
+                                 :json-type :string
+                                 :json-key "type"
+                                 :initform (string-downcase ,name-string))
                            ,@slot-definitions)
          (:metaclass json-serializable-class))
 
-       ;; (export ',(symb name 'id))
-       ;; (export ',(symb name 'rev))
-       
-       ;; ,@(mapcar (lambda (name) `(export ',name))
-       ;;           exports)
-
-       (defun ,(symb name 'get-all) ()
+       (defun ,(symb name 'get-all) (type)
          (mapcar #'(lambda (doc)
                      (json-mop:json-to-clos (gethash "doc" doc) ',name-symbol))
-                 (gethash "rows" (yason:parse (doc-get-all ,name-db-name)))))
-;;       (export ',(symb name 'get-all))
+                 (gethash "rows" (yason:parse (doc-find ,name-db-name (make-selector (list (cons "type" type))))))))
        
        (defun ,(symb name 'put) (object)
          (mango-update ,name-db-name object))
-;;       (export ',(symb name 'put))
        
        (defun ,(symb name 'update) (object)
          (mango-update ,name-db-name object))
-;;       (export ',(symb name 'update))
        
        (defmacro ,(symb name 'find-explicit) (query &rest args)
          `(class-ify-couch-response
            (doc-find ,(string-downcase ,name-string) (make-selector ,query ,@args))
            ',',name-symbol))
-       ;;(export ',(symb name 'find-explicit))
        
        (defun ,(symb name 'find) (query)
          (mango-find ,name-db-name ',name-symbol query))
-       ;;(export ',(symb name 'find))
        
        (defun ,(symb name 'delete) (object)
          (doc-delete ,name-db-name (,(symb name :id) object) (,(symb name :rev) object)))
-       ;; (export ',(symb name 'delete))
+
+
+       
+       ;; (defmacro ,(symb name 'create) (&rest args)
+       ;;   (let ((new-name (gensym)))
+       ;;     `(let ((,new-name (make-instance ',',name-symbol ,@args)))
+       ;;        (,',(symb name :put) ,new-name))))
 
        (defmacro ,(symb name 'create) (&rest args)
-         (let ((new-name (gensym)))
-           `(let ((,new-name (make-instance ',',name-symbol ,@args)))
-              (,',(symb name :put) ,new-name))))
-       ;; (export ',(symb name 'create))
+         `(make-instance ',',name-symbol ,@args))
        )))
