@@ -21,6 +21,8 @@
            #:doc-get-all
            #:doc-delete
 
+           #:bulk-docs
+           
            #:query-view
            
            #:mango-get-all
@@ -123,6 +125,11 @@
   (make-couchdb-request (format nil "/~a/~a?rev=~a" db docid revision)
                         :method :delete))
 
+(defun bulk-docs (db bundle)
+  (make-couchdb-request (format nil "/~a/_bulk_docs" db)
+                        :method :post
+                        :content bundle))
+
 (defmacro make-selector (selector &key (limit 100) fields sort skip)
   `(with-output-to-string (sink)
      (yason:encode (alist-hash-table (list (cons "limit" ,limit)
@@ -178,10 +185,10 @@
                            ,@slot-definitions)
          (:metaclass json-serializable-class))
 
-       (defun ,(symb name 'get-all) (type)
+       (defun ,(symb name 'get-all) ()
          (mapcar #'(lambda (doc)
-                     (json-mop:json-to-clos (gethash "doc" doc) ',name-symbol))
-                 (gethash "rows" (yason:parse (doc-find ,name-db-name (make-selector (list (cons "type" type))))))))
+                     (json-mop:json-to-clos doc ',name-symbol))
+                 (gethash "docs" (yason:parse (doc-find ,name-db-name (make-selector (list (cons "type" ,name-string))))))))
        
        (defun ,(symb name 'put) (object)
          (mango-update ,name-db-name object))
@@ -202,11 +209,11 @@
 
 
        
-       ;; (defmacro ,(symb name 'create) (&rest args)
-       ;;   (let ((new-name (gensym)))
-       ;;     `(let ((,new-name (make-instance ',',name-symbol ,@args)))
-       ;;        (,',(symb name :put) ,new-name))))
-
        (defmacro ,(symb name 'create) (&rest args)
-         `(make-instance ',',name-symbol ,@args))
+         (let ((new-name (gensym)))
+           `(let ((,new-name (make-instance ',',name-symbol ,@args)))
+              (,',(symb name :put) ,new-name))))
+
+       ;; (defmacro ,(symb name 'create) (&rest args)
+       ;;   `(make-instance ',',name-symbol ,@args))
        )))
