@@ -48,7 +48,8 @@
   (defparameter *mango-password* nil)
 
   (setf drakma:*text-content-types* (list (cons "application" "json")))
-
+  (setf yason:*parse-json-booleans-as-symbols* t)
+  
   (defun symb (a b)
     (intern (format nil "~a-~a" (symbol-name a) (symbol-name b)))))
 
@@ -90,6 +91,7 @@
                             :connection-timeout 60
                             ,@(when parameters `(:parameters ,parameters))
                             ,@(when content `(:content ,content)))
+     (check-type status fixnum)
      (if (not (member status (list 200 201)))
          (error 'mango-unexpected-http-response
                 :status-code status
@@ -97,11 +99,13 @@
          body)))
 
 (defun doc-batch-put (db bundle)
+  (declare (type string db bundle))
   (make-couchdb-request (format nil "/~a?batch=ok" db)
                         :method :post
                         :content bundle))
 
 (defun doc-put (db bundle)
+  (declare (type string db bundle))
   (make-couchdb-request (format nil "/~a" db)
                         :method :post
                         :content bundle))
@@ -111,9 +115,11 @@
                          ,@(when parameters `(:parameters ,parameters))))
 
 (defun doc-get (db docid)
+  (declare (type string db docid))
   (make-couchdb-request (format nil "/~a/~a" db docid)))
 
 (defun doc-find (db query)
+  (declare (type string db query))
   (make-couchdb-request (format nil "/~a/_find" db)
                         :method :post
                         :content query))
@@ -188,7 +194,9 @@
        (defun ,(symb name 'get-all) ()
          (mapcar #'(lambda (doc)
                      (json-mop:json-to-clos doc ',name-symbol))
-                 (gethash "docs" (yason:parse (doc-find ,name-db-name (make-selector (list (cons "type" ,name-string))))))))
+                 (gethash "docs" (yason:parse
+                                  (doc-find ,name-db-name (make-selector
+                                                           (list (cons "type" (string-downcase ,name-string)))))))))
        
        (defun ,(symb name 'put) (object)
          (mango-update ,name-db-name object))
@@ -202,18 +210,12 @@
            ',',name-symbol))
        
        (defun ,(symb name 'find) (query)
-         (mango-find ,name-db-name ',name-symbol query))
+         (mango-find ,name-db-name ',name-symbol (append (list (cons "type" (string-downcase ,name-string))) query)))
        
        (defun ,(symb name 'delete) (object)
          (doc-delete ,name-db-name (,(symb name :id) object) (,(symb name :rev) object)))
-
-
        
        (defmacro ,(symb name 'create) (&rest args)
          (let ((new-name (gensym)))
            `(let ((,new-name (make-instance ',',name-symbol ,@args)))
-              (,',(symb name :put) ,new-name))))
-
-       ;; (defmacro ,(symb name 'create) (&rest args)
-       ;;   `(make-instance ',',name-symbol ,@args))
-       )))
+              (,',(symb name :put) ,new-name)))))))
