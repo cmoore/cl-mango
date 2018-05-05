@@ -124,8 +124,11 @@
                         :method :post
                         :content query))
 
-(defun doc-get-all (db)
-  (make-couchdb-request (format nil "/~a/_all_docs?include_docs=true" db)))
+(defun doc-get-all (db &key (all-docs nil))
+  (let ((args (if all-docs
+                  (format nil "/~a/_all_docs?include_docs=true" db)
+                  (format nil "/~a/_all_docs" db))))
+    (make-couchdb-request args)))
 
 (defun doc-delete (db docid revision)
   (make-couchdb-request (format nil "/~a/~a?rev=~a" db docid revision)
@@ -197,6 +200,9 @@
                  (gethash "docs" (yason:parse
                                   (doc-find ,name-db-name (make-selector
                                                            (list (cons "type" (string-downcase ,name-string)))))))))
+
+       (defun ,(symb name 'by-id) (id)
+         (json-mop:json-to-clos (doc-get ,name-db-name id) ',name-symbol))
        
        (defun ,(symb name 'put) (object)
          (mango-update ,name-db-name object))
