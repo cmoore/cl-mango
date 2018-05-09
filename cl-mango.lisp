@@ -1,4 +1,4 @@
-;; -*- mode: Lisp; Syntax: COMMON-LISP; Base: 10; eval: (hs-hide-all) -*-
+;;; -*- mode: Lisp; Syntax: COMMON-LISP; Package: CL-MANGO; Base: 10 -*-
 
 (defpackage #:cl-mango
   (:use #:cl
@@ -12,6 +12,8 @@
            *mango-scheme*
            *mango-username*
            *mango-password*
+
+           *mango-explain*
            
            #:doc-put
            #:doc-batch-put
@@ -46,7 +48,8 @@
   (defparameter *mango-scheme* :http)
   (defparameter *mango-username* nil)
   (defparameter *mango-password* nil)
-
+  (defparameter *mango-explain* nil)
+  
   (setf drakma:*text-content-types* (list (cons "application" "json")))
   (setf yason:*parse-json-booleans-as-symbols* t)
   
@@ -77,26 +80,32 @@
                                        (content-type "application/json")
                                        (accept "application/json")
                                        (preserve-uri))
-  `(multiple-value-bind (body status)
-       (drakma:http-request (make-request-uri ,path)
-                            :accept ,accept
-                            :content-type ,content-type
-                            :method ,method
-                            ,@(when (and (not (null *mango-username*))
-                                         (not (null *mango-password*)))
-                                `(:basic-authorization (list *mango-username* *mango-password*)))
-                            ,@(when preserve-uri `(:preserve-uri t))
-                            :external-format-in :utf8
-                            :external-format-out :utf8
-                            :connection-timeout 60
-                            ,@(when parameters `(:parameters ,parameters))
-                            ,@(when content `(:content ,content)))
-     (check-type status fixnum)
-     (if (not (member status (list 200 201)))
-         (error 'mango-unexpected-http-response
-                :status-code status
-                :body body)
-         body)))
+  (alexandria:with-gensyms (body status warning)
+    `(multiple-value-bind (,body ,status)
+         (drakma:http-request (make-request-uri ,path)
+                              :accept ,accept
+                              :content-type ,content-type
+                              :method ,method
+                              ,@(when (and (not (null *mango-username*))
+                                           (not (null *mango-password*)))
+                                  `(:basic-authorization (list *mango-username* *mango-password*)))
+                              ,@(when preserve-uri `(:preserve-uri t))
+                              :external-format-in :utf8
+                              :external-format-out :utf8
+                              :connection-timeout 60
+                              ,@(when parameters `(:parameters ,parameters))
+                              ,@(when content `(:content ,content)))
+       (check-type ,status fixnum)
+       (if (not (member ,status (list 200 201)))
+           (error 'mango-unexpected-http-response
+                  :status-code ,status
+                  :body ,body)
+           (progn
+             (when *mango-explain*
+               (ignore-errors
+                (let ((,warning (gethash "warning" (yason:parse ,body))))
+                  (when ,warning (log:trace ,warning)))))
+             ,body)))))
 
 (defun doc-batch-put (db bundle)
   (declare (type string db bundle))
@@ -209,10 +218,10 @@
        
        (defun ,(symb name 'update) (object)
          (mango-update ,name-db-name object))
-       
+
        (defmacro ,(symb name 'find-explicit) (query &rest args)
          `(class-ify-couch-response
-           (doc-find ,(string-downcase ,name-string) (make-selector ,query ,@args))
+           (doc-find ,',name-db-name (make-selector ,query ,@args))
            ',',name-symbol))
        
        (defun ,(symb name 'find) (query)
