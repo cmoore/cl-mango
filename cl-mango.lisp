@@ -149,16 +149,17 @@
                         :content bundle))
 
 (defmacro make-selector (selector &key (limit 100) fields sort skip)
-  `(with-output-to-string (sink)
-     (yason:encode (alist-hash-table (list (cons "limit" ,limit)
-                                           ,@(when skip
-                                               `((cons "skip" ,skip)))
-                                           ,@(when sort
-                                               `((cons "sort" ,sort)))
-                                           ,@(when fields
-                                               `((cons "fields" ,fields)))
-                                           (cons "selector" (alist-hash-table ,selector))))
-                   sink)))
+  (let ((sink (gensym)))
+    `(with-output-to-string (,sink)
+       (yason:encode (alist-hash-table (list (cons "limit" ,limit)
+                                             ,@(when skip
+                                                 `((cons "skip" ,skip)))
+                                             ,@(when sort
+                                                 `((cons "sort" ,sort)))
+                                             ,@(when fields
+                                                 `((cons "fields" ,fields)))
+                                             (cons "selector" (alist-hash-table ,selector))))
+                     ,sink))))
 
 (defun class-ify-couch-response (bundle class &key (doc-name "docs"))
   (check-type bundle string)
@@ -231,6 +232,8 @@
          (doc-delete ,name-db-name (,(symb name :id) object) (,(symb name :rev) object)))
        
        (defmacro ,(symb name 'create) (&rest args)
-         (let ((new-name (gensym)))
-           `(let ((,new-name (make-instance ',',name-symbol ,@args)))
-              (,',(symb name :put) ,new-name)))))))
+         (alexandria:with-gensyms (new-name result)
+           `(let* ((,new-name (make-instance ',',name-symbol ,@args))
+                   (,result (,',(symb name :put) ,new-name)))
+              (gethash "id" (yason:parse ,result))))))))
+
