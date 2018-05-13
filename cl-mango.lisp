@@ -7,11 +7,11 @@
   (:nicknames "mango")
   (:import-from :alexandria :hash-table-keys
                 :alist-hash-table)
-  (:export *mango-host*
-           *mango-port*
-           *mango-scheme*
-           *mango-username*
-           *mango-password*
+  (:export *host*
+           *port*
+           *scheme*
+           *username*
+           *password*
 
            *mango-explain*
            
@@ -43,12 +43,12 @@
 (in-package #:cl-mango)
 
 (eval-when (:compile-toplevel :load-toplevel)
-  (defparameter *mango-host* nil)
-  (defparameter *mango-port* nil)
-  (defparameter *mango-scheme* :http)
-  (defparameter *mango-username* nil)
-  (defparameter *mango-password* nil)
-  (defparameter *mango-explain* nil)
+  (defparameter *host* nil)
+  (defparameter *port* nil)
+  (defparameter *scheme* :http)
+  (defparameter *username* nil)
+  (defparameter *password* nil)
+  (defparameter *explain* nil)
   
   (setf drakma:*text-content-types* (list (cons "application" "json")))
   (setf yason:*parse-json-booleans-as-symbols* t)
@@ -58,9 +58,9 @@
 
 (defun make-request-uri (req-path)
     (with-output-to-string (sink)
-      (puri:render-uri (make-instance 'puri:uri :scheme *mango-scheme*
-                                                :host *mango-host*
-                                                :port *mango-port*
+      (puri:render-uri (make-instance 'puri:uri :scheme *scheme*
+                                                :host *host*
+                                                :port *port*
                                                 :path req-path) sink)))
 
 (define-condition mango-unexpected-http-response ()
@@ -86,9 +86,9 @@
                               :accept ,accept
                               :content-type ,content-type
                               :method ,method
-                              ,@(when (and (not (null *mango-username*))
-                                           (not (null *mango-password*)))
-                                  `(:basic-authorization (list *mango-username* *mango-password*)))
+                              ,@(when (and (not (null *username*))
+                                           (not (null *password*)))
+                                  `(:basic-authorization (list *username* *password*)))
                               ,@(when preserve-uri `(:preserve-uri t))
                               :external-format-in :utf8
                               :external-format-out :utf8
@@ -101,10 +101,10 @@
                   :status-code ,status
                   :body ,body)
            (progn
-             (when *mango-explain*
+             (when *explain*
                (ignore-errors
                 (let ((,warning (gethash "warning" (yason:parse ,body))))
-                  (when ,warning (log:trace ,warning)))))
+                  (when ,warning (log:info ,warning)))))
              ,body)))))
 
 (defun doc-batch-put (db bundle)
@@ -184,6 +184,18 @@
                         :content (with-output-to-string (sink)
                                    (json-mop:encode object sink))))
 
+(defun allowed-slot-p (class name)
+  (declare (optimize (debug 0) (speed 3) (safety 1)))
+  (declare (type symbol class)
+           (type string name))
+  (member name
+          (mapcar (lambda (slot)
+                    (string-downcase
+                     (symbol-name
+                      (closer-mop:slot-definition-name slot))))
+                  (sb-mop:class-direct-slots (find-class class)))
+          :test #'string=))
+
 (defmacro defmango (name database slot-definitions)
   (let* ((name-string (format nil "~a" name))
          (name-symbol (intern (symbol-name name)))
@@ -208,8 +220,9 @@
          (mapcar #'(lambda (doc)
                      (json-mop:json-to-clos doc ',name-symbol))
                  (gethash "docs" (yason:parse
-                                  (doc-find ,name-db-name (make-selector
-                                                           (list (cons "type" (string-downcase ,name-string)))))))))
+                                  (doc-find ,name-db-name
+                                            (make-selector
+                                             (list (cons "type" (string-downcase ,name-string)))))))))
 
        (defun ,(symb name 'by-id) (id)
          (json-mop:json-to-clos (doc-get ,name-db-name id) ',name-symbol))
@@ -221,19 +234,25 @@
          (mango-update ,name-db-name object))
 
        (defmacro ,(symb name 'find-explicit) (query &rest args)
-         `(class-ify-couch-response
-           (doc-find ,',name-db-name (make-selector ,query ,@args))
-           ',',name-symbol))
+         `(class-ify-couch-response (doc-find ,',name-db-name (make-selector ,query ,@args))
+                                    ',',name-symbol))
        
        (defun ,(symb name 'find) (query)
-         (mango-find ,name-db-name ',name-symbol (append (list (cons "type" (string-downcase ,name-string))) query)))
+         (let ((query-slots (mapcar #'car query)))
+           (alexandria:if-let
+               ((bad-name (remove-if #'null
+                                     (mapcar (lambda (slot-name)
+                                               (allowed-slot-p ',name-symbol slot-name))
+                                             query-slots))))
+             (mango-find ,name-db-name ',name-symbol
+                         (append (list (cons "type" (string-downcase ,name-string))) query))
+             (error (format nil "Can't query against a slot that isn't bound to the class: ~a" bad-name)))))
        
        (defun ,(symb name 'delete) (object)
          (doc-delete ,name-db-name (,(symb name :id) object) (,(symb name :rev) object)))
        
        (defmacro ,(symb name 'create) (&rest args)
-         (alexandria:with-gensyms (new-name result)
-           `(let* ((,new-name (make-instance ',',name-symbol ,@args))
-                   (,result (,',(symb name :put) ,new-name)))
+         (alexandria:with-gensyms (new-instance result)
+           `(let* ((,new-instance (make-instance ',',name-symbol ,@args))
+                   (,result (,',(symb name :put) ,new-instance)))
               (gethash "id" (yason:parse ,result))))))))
-
