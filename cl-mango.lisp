@@ -32,12 +32,14 @@
            #:mango-update
            #:make-selector
            
-           #:make-couchdb-request
+           #:couchdb-request
 
            #:send-json
            
            #:defmango
-
+           #:doc
+           #:doc-id
+           #:doc-rev
            #:mango-unexpected-http-response))
 
 (in-package #:cl-mango)
@@ -56,30 +58,34 @@
   (defun symb (a b)
     (intern (format nil "~a-~a" (symbol-name a) (symbol-name b)))))
 
+
+
 (defun make-request-uri (req-path)
-    (with-output-to-string (sink)
-      (puri:render-uri (make-instance 'puri:uri :scheme *scheme*
-                                                :host *host*
-                                                :port *port*
-                                                :path req-path) sink)))
+  (with-output-to-string (sink)
+    (puri:render-uri
+     (make-instance 'puri:uri :scheme *scheme*
+                              :host *host*
+                              :port *port*
+                              :path req-path) sink)))
 
 (define-condition mango-unexpected-http-response ()
   ((status-code :initform nil :initarg :status-code :reader status-code)
    (status-body :initform nil :initarg :body :reader status-body))
-  (:report (lambda (condition stream) (format stream "~a ~a" (status-code condition) (status-body condition)))))
+  (:report (lambda (condition stream)
+             (format stream "~a ~a" (status-code condition) (status-body condition)))))
 
 (defmacro send-json (&rest body)
   (alexandria:with-gensyms (sink)
     `(with-output-to-string (,sink)
        (yason:encode ,@body ,sink))))
 
-(defmacro make-couchdb-request (path &key
-                                       (parameters nil)
-                                       (content nil)
-                                       (method :get)
-                                       (content-type "application/json")
-                                       (accept "application/json")
-                                       (preserve-uri))
+(defmacro couchdb-request (path &key
+                                  (parameters nil)
+                                  (content nil)
+                                  (method :get)
+                                  (content-type "application/json")
+                                  (accept "application/json")
+                                  (preserve-uri))
   (alexandria:with-gensyms (body status warning)
     `(multiple-value-bind (,body ,status)
          (drakma:http-request (make-request-uri ,path)
@@ -107,47 +113,49 @@
                   (when ,warning (log:info ,warning)))))
              ,body)))))
 
+
 (defun doc-batch-put (db bundle)
   (declare (type string db bundle))
-  (make-couchdb-request (format nil "/~a?batch=ok" db)
-                        :method :post
-                        :content bundle))
+  (couchdb-request (format nil "/~a?batch=ok" db)
+                   :method :post
+                   :content bundle))
 
 (defun doc-put (db bundle)
   (declare (type string db bundle))
-  (make-couchdb-request (format nil "/~a" db)
-                        :method :post
-                        :content bundle))
+  (couchdb-request (format nil "/~a" db)
+                   :method :post
+                   :content bundle))
 
 (defmacro query-view (db view index &key parameters)
-  `(make-couchdb-request (format nil "/~a/_design/~a/_view/~a" ,db ,view ,index)
-                         ,@(when parameters `(:parameters ,parameters))))
+  `(couchdb-request (format nil "/~a/_design/~a/_view/~a" ,db ,view ,index)
+                    ,@(when parameters `(:parameters ,parameters))))
 
 (defun doc-get (db docid)
   (declare (type string db docid))
-  (make-couchdb-request (format nil "/~a/~a" db docid)))
+  (couchdb-request (format nil "/~a/~a" db docid)))
 
 (defun doc-find (db query)
   (declare (type string db query))
-  (make-couchdb-request (format nil "/~a/_find" db)
-                        :method :post
-                        :content query))
+  (couchdb-request (format nil "/~a/_find" db)
+                   :method :post
+                   :content query))
 
 (defun doc-get-all (db &key (all-docs nil))
   (let ((args (if all-docs
                   (format nil "/~a/_all_docs?include_docs=true" db)
                   (format nil "/~a/_all_docs" db))))
-    (make-couchdb-request args)))
+    (couchdb-request args)))
 
 (defun doc-delete (db docid revision)
-  (make-couchdb-request (format nil "/~a/~a?rev=~a" db docid revision)
-                        :method :delete))
+  (couchdb-request (format nil "/~a/~a?rev=~a" db docid revision)
+                   :method :delete))
 
 (defun bulk-docs (db bundle)
-  (make-couchdb-request (format nil "/~a/_bulk_docs" db)
-                        :method :post
-                        :content bundle))
+  (couchdb-request (format nil "/~a/_bulk_docs" db)
+                   :method :post
+                   :content bundle))
 
+
 (defmacro make-selector (selector &key (limit 100) fields sort skip)
   (let ((sink (gensym)))
     `(with-output-to-string (,sink)
@@ -161,10 +169,10 @@
                                              (cons "selector" (alist-hash-table ,selector))))
                      ,sink))))
 
-(defun class-ify-couch-response (bundle class &key (doc-name "docs"))
+(defun %json-to-clos (bundle class &key (doc-name "docs"))
   (check-type bundle string)
-  (mapcar #'(lambda (doc)
-              (json-mop:json-to-clos doc class))
+  (mapcar (lambda (doc)
+            (json-mop:json-to-clos doc class))
           (gethash doc-name (yason:parse bundle))))
 
 (defun mango-get-all (db class)
@@ -175,14 +183,13 @@
 
 (defun mango-find (db class query)
   (check-type query list)
-  (class-ify-couch-response
-   (doc-find db (make-selector query)) class))
+  (%json-to-clos (doc-find db (make-selector query)) class))
 
 (defun mango-update (db object)
-  (make-couchdb-request (format nil "/~a" db)
-                        :method :post
-                        :content (with-output-to-string (sink)
-                                   (json-mop:encode object sink))))
+  (couchdb-request (format nil "/~a" db)
+                   :method :post
+                   :content (with-output-to-string (sink)
+                              (json-mop:encode object sink))))
 
 (defun allowed-slot-p (class name)
   (declare (optimize (debug 0) (speed 3) (safety 1)))
@@ -196,33 +203,31 @@
                   (sb-mop:class-direct-slots (find-class class)))
           :test #'string=))
 
-(defmacro defmango (name database slot-definitions)
+(defmacro defmango (name database slot-definitions &key (superclass nil))
   (let* ((name-string (format nil "~a" name))
          (name-symbol (intern (symbol-name name)))
          (name-db-name (string-downcase database)))
     `(progn
-       (defclass ,name () ((id :initarg :id
-                               :json-type :string
-                               :json-key "_id"
-                               :accessor ,(symb name :id))
-                           (rev :initarg :rev
-                                :json-type :string
-                                :json-key "_rev"
-                                :accessor ,(symb name :rev))
-                           (type :initarg :type
-                                 :json-type :string
-                                 :json-key "type"
-                                 :initform (string-downcase ,name-string))
-                           ,@slot-definitions)
+       (defclass ,name (,superclass) ((id :initarg :id
+                                          :json-type :string
+                                          :json-key "_id"
+                                          :accessor ,(symb name :id))
+                                      (rev :initarg :rev
+                                           :json-type :string
+                                           :json-key "_rev"
+                                           :accessor ,(symb name :rev))
+                                      (type :initarg :type
+                                            :json-type :string
+                                            :json-key "type"
+                                            :initform (string-downcase ,name-string))
+                                      ,@slot-definitions)
          (:metaclass json-serializable-class))
 
+       
        (defun ,(symb name 'get-all) ()
-         (mapcar #'(lambda (doc)
-                     (json-mop:json-to-clos doc ',name-symbol))
-                 (gethash "docs" (yason:parse
-                                  (doc-find ,name-db-name
-                                            (make-selector
-                                             (list (cons "type" (string-downcase ,name-string)))))))))
+         (mango-find ,name-db-name
+                     ',name
+                     (list (cons "type" (string-downcase ,name-string)))))
 
        (defun ,(symb name 'by-id) (id)
          (json-mop:json-to-clos (doc-get ,name-db-name id) ',name-symbol))
@@ -234,8 +239,8 @@
          (mango-update ,name-db-name object))
 
        (defmacro ,(symb name 'find-explicit) (query &rest args)
-         `(class-ify-couch-response (doc-find ,',name-db-name (make-selector ,query ,@args))
-                                    ',',name-symbol))
+         `(%json-to-clos (doc-find ,',name-db-name (make-selector ,query ,@args))
+                         ',',name-symbol))
        
        (defun ,(symb name 'find) (query)
          (let ((query-slots (mapcar #'car query)))
@@ -248,8 +253,8 @@
                          (append (list (cons "type" (string-downcase ,name-string))) query))
              (error (format nil "Can't query against a slot that isn't bound to the class: ~a" bad-name)))))
        
-       (defun ,(symb name 'delete) (object)
-         (doc-delete ,name-db-name (,(symb name :id) object) (,(symb name :rev) object)))
+       ;; (defun ,(symb name 'delete) (object)
+       ;;   (doc-delete ,name-db-name (,(symb name :id) object) (,(symb name :rev) object)))
        
        (defmacro ,(symb name 'create) (&rest args)
          (alexandria:with-gensyms (new-instance result)
