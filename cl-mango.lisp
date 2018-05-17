@@ -37,7 +37,7 @@
            #:send-json
            
            #:defmango
-           #:mango-unexpected-http-response))
+           #:unexpected-http-response))
 
 (in-package #:cl-mango)
 
@@ -65,7 +65,7 @@
                               :port *port*
                               :path req-path) sink)))
 
-(define-condition mango-unexpected-http-response ()
+(define-condition unexpected-http-response ()
   ((status-code :initform nil :initarg :status-code :reader status-code)
    (status-body :initform nil :initarg :body :reader status-body))
   (:report (lambda (condition stream)
@@ -100,7 +100,7 @@
                               ,@(when content `(:content ,content)))
        (check-type ,status fixnum)
        (if (not (member ,status (list 200 201)))
-           (error 'mango-unexpected-http-response
+           (error 'unexpected-http-response
                   :status-code ,status
                   :body ,body)
            (progn
@@ -250,8 +250,8 @@
                          (append (list (cons "type" (string-downcase ,name-string))) query))
              (error (format nil "Can't query against a slot that isn't bound to the class: ~a" bad-name)))))
        
-       ;; (defun ,(symb name 'delete) (object)
-       ;;   (doc-delete ,name-db-name (,(symb name :id) object) (,(symb name :rev) object)))
+       (defun ,(symb name 'delete) (object)
+         (doc-delete ,name-db-name (,(symb name :id) object) (,(symb name :rev) object)))
        
        (defmacro ,(symb name 'create) (&rest args)
          (alexandria:with-gensyms (new-instance result)
