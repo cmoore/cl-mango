@@ -37,9 +37,6 @@
            #:send-json
            
            #:defmango
-           #:doc
-           #:doc-id
-           #:doc-rev
            #:mango-unexpected-http-response))
 
 (in-package #:cl-mango)
@@ -203,24 +200,24 @@
                   (sb-mop:class-direct-slots (find-class class)))
           :test #'string=))
 
-(defmacro defmango (name database slot-definitions &key (superclass nil))
+(defmacro defmango (name database slot-definitions)
   (let* ((name-string (format nil "~a" name))
          (name-symbol (intern (symbol-name name)))
          (name-db-name (string-downcase database)))
     `(progn
-       (defclass ,name (,superclass) ((id :initarg :id
-                                          :json-type :string
-                                          :json-key "_id"
-                                          :accessor ,(symb name :id))
-                                      (rev :initarg :rev
-                                           :json-type :string
-                                           :json-key "_rev"
-                                           :accessor ,(symb name :rev))
-                                      (type :initarg :type
-                                            :json-type :string
-                                            :json-key "type"
-                                            :initform (string-downcase ,name-string))
-                                      ,@slot-definitions)
+       (defclass ,name () ((id :initarg :id
+                               :json-type :string
+                               :json-key "_id"
+                               :accessor ,(symb name :id))
+                           (rev :initarg :rev
+                                :json-type :string
+                                :json-key "_rev"
+                                :accessor ,(symb name :rev))
+                           (type :initarg :type
+                                 :json-type :string
+                                 :json-key "type"
+                                 :initform (string-downcase ,name-string))
+                           ,@slot-definitions)
          (:metaclass json-serializable-class))
 
        
