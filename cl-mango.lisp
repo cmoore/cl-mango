@@ -124,9 +124,6 @@
                    :method :post
                    :content bundle))
 
-(defmacro query-view (db view index &key parameters)
-  `(couchdb-request (format nil "/~a/_design/~a/_view/~a" ,db ,view ,index)
-                    ,@(when parameters `(:parameters ,parameters))))
 
 (defun doc-get (db docid)
   (declare (type string db docid))
@@ -198,9 +195,16 @@
                     (string-downcase
                      (symbol-name
                       (closer-mop:slot-definition-name slot))))
-                  (sb-mop:class-direct-slots (find-class class)))
+                  #+sbcl (sb-mop:class-direct-slots (find-class class))
+                  #+ccl (ccl:class-direct-slots (find-class class)))
           :test #'string=))
 
+
+(defmacro query-view (db view index &key parameters)
+  `(couchdb-request (format nil "/~a/_design/~a/_view/~a" ,db ,view ,index)
+                    ,@(when parameters `(:parameters ,parameters))))
+
+
 (defmacro defmango (name database slot-definitions)
   (let* ((name-string (format nil "~a" name))
          (name-symbol (intern (symbol-name name)))
@@ -232,7 +236,7 @@
        
        (defun ,(symb name 'put) (object)
          (mango-update ,name-db-name object))
-       
+
        (defun ,(symb name 'update) (object)
          (mango-update ,name-db-name object))
 
