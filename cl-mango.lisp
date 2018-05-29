@@ -13,7 +13,7 @@
            *username*
            *password*
 
-           *mango-explain*
+           *explain*
            
            #:doc-put
            #:doc-batch-put
@@ -48,7 +48,7 @@
   (defparameter *username* nil)
   (defparameter *password* nil)
   (defparameter *explain* nil)
-  
+
   (setf drakma:*text-content-types* (list (cons "application" "json")))
   (setf yason:*parse-json-booleans-as-symbols* t)
   
@@ -89,9 +89,7 @@
                               :accept ,accept
                               :content-type ,content-type
                               :method ,method
-                              ,@(when (and (not (null *username*))
-                                           (not (null *password*)))
-                                  `(:basic-authorization (list *username* *password*)))
+                              :basic-authorization (list *username* *password*)
                               ,@(when preserve-uri `(:preserve-uri t))
                               :external-format-in :utf8
                               :external-format-out :utf8
@@ -107,7 +105,10 @@
              (when *explain*
                (ignore-errors
                 (let ((,warning (gethash "warning" (yason:parse ,body))))
-                  (when ,warning (log:info ,warning)))))
+                  (when ,warning
+                    (log:info ,warning)
+                    (log:info ,parameters)
+                    (log:info ,content)))))
              ,body)))))
 
 
