@@ -34,8 +34,6 @@
            
            #:couchdb-request
 
-           #:send-json
-           
            #:defmango
            #:unexpected-http-response))
 
@@ -70,11 +68,6 @@
    (status-body :initform nil :initarg :body :reader status-body))
   (:report (lambda (condition stream)
              (format stream "~a ~a" (status-code condition) (status-body condition)))))
-
-(defmacro send-json (&rest body)
-  (alexandria:with-gensyms (sink)
-    `(with-output-to-string (,sink)
-       (yason:encode ,@body ,sink))))
 
 (defmacro couchdb-request (path &key
                                   (parameters nil)
