@@ -203,14 +203,14 @@
          (name-symbol (intern (symbol-name name)))
          (name-db-name (string-downcase database)))
     `(progn
-       (defclass ,name () ((id :initarg :id
-                               :json-type :string
-                               :json-key "_id"
-                               :accessor ,(symb name :id))
-                           (rev :initarg :rev
+       (defclass ,name () ((-id :initarg :-id
                                 :json-type :string
-                                :json-key "_rev"
-                                :accessor ,(symb name :rev))
+                                :json-key "_id"
+                                :accessor ,(symb name :-id))
+                           (-rev :initarg :-rev
+                                 :json-type :string
+                                 :json-key "_rev"
+                                 :accessor ,(symb name :rev))
                            (type :initarg :type
                                  :json-type :string
                                  :json-key "type"
@@ -240,16 +240,16 @@
        (defun ,(symb name 'find) (query)
          (let ((query-slots (mapcar #'car query)))
            (alexandria:if-let
-               ((bad-name (remove-if #'null
+               ((is-good-slot? (remove-if #'null
                                      (mapcar (lambda (slot-name)
                                                (allowed-slot-p ',name-symbol slot-name))
                                              query-slots))))
              (mango-find ,name-db-name ',name-symbol
                          (append (list (cons "type" (string-downcase ,name-string))) query))
-             (error (format nil "Can't query against a slot that isn't bound to the class: ~a" bad-name)))))
+             (error (format nil "Can't query against a slot that isn't bound to the class.")))))
        
        (defun ,(symb name 'delete) (object)
-         (doc-delete ,name-db-name (,(symb name :id) object) (,(symb name :rev) object)))
+         (doc-delete ,name-db-name (,(symb name :-id) object) (,(symb name :rev) object)))
        
        (defmacro ,(symb name 'create) (&rest args)
          (alexandria:with-gensyms (new-instance result)
