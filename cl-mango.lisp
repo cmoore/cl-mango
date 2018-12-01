@@ -224,6 +224,9 @@
                      ',name
                      (list (cons "type" (string-downcase ,name-string)))))
 
+       (defun ,(symb name 'get) (id)
+         (json-mop:json-to-clos (doc-get ,name-db-name id) ',name-symbol))
+
        (defun ,(symb name 'by-id) (id)
          (json-mop:json-to-clos (doc-get ,name-db-name id) ',name-symbol))
        
