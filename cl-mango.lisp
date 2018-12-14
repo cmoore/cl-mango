@@ -194,8 +194,11 @@
 
 
 (defmacro query-view (db view index &key parameters)
-  `(couchdb-request (format nil "/~a/_design/~a/_view/~a" ,db ,view ,index)
-                    ,@(when parameters `(:parameters ,parameters))))
+  `(gethash "rows"
+            (yason:parse
+             (couchdb-request (format nil "/~a/_design/~a/_view/~a" ,db ,view ,index)
+                              ,@(when parameters `(:parameters ,parameters))
+                              :method :get))))
 
 
 (defmacro defmango (name database slot-definitions)
