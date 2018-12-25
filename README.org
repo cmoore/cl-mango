@@ -7,7 +7,7 @@ Mango a client library for CouchDB 2.x
 
 * Usage
 
-#+BEGIN_SRC
+#+BEGIN_SRC lisp
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (setf cl-mango:*host* "127.0.0.1")
@@ -24,11 +24,11 @@ Mango a client library for CouchDB 2.x
 
   Builds a selector for the query functions.
 
-#+BEGIN_SRC
-  (make-selector (list (cons "name" "mango"))
+#+BEGIN_SRC lisp
+  (make-selector '(cons "name" "mango")
                  :limit 10
                  :fields (list "_id" "_rev")
-                 :sort (list (cons "name" "desc"))
+                 :sort '(cons "name" "desc")
                  :skip 100)
 #+END_SRC
 
