@@ -3,21 +3,18 @@
 
 
 Mango a client library for CouchDB 2.x
-
+(it also happens to be the name of CouchDB's alternate query language)
 
 * Usage
 
 #+BEGIN_SRC lisp
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (setf cl-mango:*host* "127.0.0.1")
   (setf cl-mango:*port* 5984)
   (setf cl-mango:*scheme* :http)
   (setf cl-mango:*username* "user")
   (setf cl-mango:*password* "password"))
-
 #+END_SRC
-
 
 
 - make-selector selector &key limit fields sort skip
@@ -30,5 +27,36 @@ Mango a client library for CouchDB 2.x
                  :fields (list "_id" "_rev")
                  :sort '(cons "name" "desc")
                  :skip 100)
+#+END_SRC
+
+
+- doc-find database selector
+
+  Execute a query against <database>.
+
+  (doc-find "test" (make-selector (list (cons "name" "me")))
+
+- doc-get database document-id
+
+  Get a single document by it's "_id".
+
+  (doc-get "test" "<docid>")
+
+- doc-delete database document-id
+
+  Delete a single document.
+
+- doc-put database json-bundle
+
+  Insert a single document.
+
+#+BEGIN_SRC
+;; Assuming you use yason, but as long as the
+;; string is well formed JSON, you can use
+;; whatever library you want.
+(doc-put "test" (with-output-to-string (sink)
+                  (yason:encode
+                    (list (cons "name" "me")
+                          (cons "something" "something else")))))
 #+END_SRC
 
