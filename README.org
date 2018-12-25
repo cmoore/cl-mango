@@ -7,7 +7,7 @@ Mango a client library for CouchDB 2.x
 
 * Usage
 
-#+BEGIN_SRC lisp
+#+BEGIN_SRC lisp -n +i
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (setf cl-mango:*host* "127.0.0.1")
   (setf cl-mango:*port* 5984)
@@ -21,7 +21,7 @@ Mango a client library for CouchDB 2.x
 
   Builds a selector for the query functions.
 
-#+BEGIN_SRC lisp
+#+BEGIN_SRC lisp -n +i
   (make-selector '(cons "name" "mango")
                  :limit 10
                  :fields (list "_id" "_rev")
@@ -34,12 +34,14 @@ Mango a client library for CouchDB 2.x
 
   Execute a query against <database>.
 
+#+BEGIN_SRC lisp -n +i
   (doc-find "test" (make-selector (list (cons "name" "me")))
 
 - doc-get database document-id
 
   Get a single document by it's "_id".
 
+#+BEGIN_SRC lisp -n +i
   (doc-get "test" "<docid>")
 
 - doc-delete database document-id
@@ -50,7 +52,7 @@ Mango a client library for CouchDB 2.x
 
   Insert a single document.
 
-#+BEGIN_SRC
+#+BEGIN_SRC lisp -n +i
 ;; Assuming you use yason, but as long as the
 ;; string is well formed JSON, you can use
 ;; whatever library you want.
