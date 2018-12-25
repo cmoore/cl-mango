@@ -24,9 +24,11 @@ Mango a client library for CouchDB 2.x
 
   Builds a selector for the query functions.
 
+#+BEGIN_SRC
   (make-selector (list (cons "name" "mango"))
                  :limit 10
                  :fields (list "_id" "_rev")
                  :sort (list (cons "name" "desc"))
                  :skip 100)
+#+END_SRC
 
