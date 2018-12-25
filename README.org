@@ -1,4 +1,32 @@
 
-Nothing here yet, but there will be soon enough.
-
 [[mango2.jpg]]
+
+
+Mango a client library for CouchDB 2.x
+
+
+* Usage
+
+#+BEGIN_SRC
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (setf cl-mango:*host* "127.0.0.1")
+  (setf cl-mango:*port* 5984)
+  (setf cl-mango:*scheme* :http)
+  (setf cl-mango:*username* "user")
+  (setf cl-mango:*password* "password"))
+
+#+END_SRC
+
+
+
+- make-selector selector &key limit fields sort skip
+
+  Builds a selector for the query functions.
+
+  (make-selector (list (cons "name" "mango"))
+                 :limit 10
+                 :fields (list "_id" "_rev")
+                 :sort (list (cons "name" "desc"))
+                 :skip 100)
+

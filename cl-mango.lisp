@@ -124,9 +124,13 @@
 
 (defun doc-find (db query)
   (declare (type string db query))
-  (couchdb-request (format nil "/~a/_find" db)
-                   :method :post
-                   :content query))
+  (handler-case 
+      (couchdb-request (format nil "/~a/_find" db)
+                       :method :post
+                       :content query)
+    (drakma::simple-error (condition)
+      (declare (ignore condition))
+      (doc-find db query))))
 
 (defun doc-get-all (db &key (all-docs nil))
   (let ((args (if all-docs
