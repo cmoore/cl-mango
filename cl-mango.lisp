@@ -12,7 +12,6 @@
            *scheme*
            *username*
            *password*
-
            *explain*
            
            #:doc-put
@@ -27,14 +26,9 @@
            
            #:query-view
            
-           #:mango-get-all
-           #:mango-find
-           #:mango-update
            #:make-selector
-           
            #:couchdb-request
 
-           #:defmango
            #:unexpected-http-response))
 
 (in-package #:cl-mango)
@@ -45,6 +39,10 @@
   (defparameter *scheme* :http)
   (defparameter *username* nil)
   (defparameter *password* nil)
+  
+  ;; If there is a warning about the lack of a usable index
+  ;; for a mango query, send that warning to the console using
+  ;; log4cl
   (defparameter *explain* nil)
 
   (setf drakma:*text-content-types* (list (cons "application" "json")))
@@ -63,11 +61,13 @@
                               :port *port*
                               :path req-path) sink)))
 
+
 (define-condition unexpected-http-response ()
   ((status-code :initform nil :initarg :status-code :reader status-code)
    (status-body :initform nil :initarg :body :reader status-body))
   (:report (lambda (condition stream)
              (format stream "~a ~a" (status-code condition) (status-body condition)))))
+
 
 (defmacro couchdb-request (path &key
                                   (parameters nil)
@@ -161,108 +161,9 @@
                                              (cons "selector" (alist-hash-table ,selector))))
                      ,sink))))
 
-(defun %json-to-clos (bundle class &key (doc-name "docs"))
-  (check-type bundle string)
-  (mapcar (lambda (doc)
-            (json-mop:json-to-clos doc class))
-          (gethash doc-name (yason:parse bundle))))
-
-(defun mango-get-all (db class)
-  (check-type class symbol)
-  (mapcar #'(lambda (doc)
-              (json-mop:json-to-clos (gethash "doc" doc) class))
-          (gethash "rows" (yason:parse (doc-get-all db)))))
-
-(defun mango-find (db class query)
-  (check-type query list)
-  (%json-to-clos (doc-find db (make-selector query)) class))
-
-(defun mango-update (db object)
-  (couchdb-request (format nil "/~a" db)
-                   :method :post
-                   :content (with-output-to-string (sink)
-                              (json-mop:encode object sink))))
-
-(defun allowed-slot-p (class name)
-  (declare (optimize (debug 0) (speed 3) (safety 1)))
-  (declare (type symbol class)
-           (type string name))
-  (member name
-          (mapcar (lambda (slot)
-                    (string-downcase
-                     (symbol-name
-                      (closer-mop:slot-definition-name slot))))
-                  #+sbcl (sb-mop:class-direct-slots (find-class class))
-                  #+ccl (ccl:class-direct-slots (find-class class)))
-          :test #'string=))
-
-
 (defmacro query-view (db view index &key parameters)
   `(gethash "rows"
             (yason:parse
              (couchdb-request (format nil "/~a/_design/~a/_view/~a" ,db ,view ,index)
                               ,@(when parameters `(:parameters ,parameters))
                               :method :get))))
-
-
-(defmacro defmango (name database slot-definitions)
-  (let* ((name-string (format nil "~a" name))
-         (name-symbol (intern (symbol-name name)))
-         (name-db-name (string-downcase database)))
-    `(progn
-       (defclass ,name () ((-id :initarg :-id
-                                :json-type :string
-                                :json-key "_id"
-                                :accessor ,(symb name :-id))
-                           (-rev :initarg :-rev
-                                 :json-type :string
-                                 :json-key "_rev"
-                                 :accessor ,(symb name :rev))
-                           (type :initarg :type
-                                 :json-type :string
-                                 :json-key "type"
-                                 :initform (string-downcase ,name-string))
-                           ,@slot-definitions)
-         (:metaclass json-serializable-class))
-
-       
-       (defun ,(symb name 'get-all) ()
-         (mango-find ,name-db-name
-                     ',name
-                     (list (cons "type" (string-downcase ,name-string)))))
-
-       (defun ,(symb name 'get) (id)
-         (json-mop:json-to-clos (doc-get ,name-db-name id) ',name-symbol))
-
-       (defun ,(symb name 'by-id) (id)
-         (json-mop:json-to-clos (doc-get ,name-db-name id) ',name-symbol))
-       
-       (defun ,(symb name 'put) (object)
-         (mango-update ,name-db-name object))
-
-       (defun ,(symb name 'update) (object)
-         (mango-update ,name-db-name object))
-
-       (defmacro ,(symb name 'find-explicit) (query &rest args)
-         `(%json-to-clos (doc-find ,',name-db-name (make-selector ,query ,@args))
-                         ',',name-symbol))
-       
-       (defun ,(symb name 'find) (query)
-         (let ((query-slots (mapcar #'car query)))
-           (alexandria:if-let
-               ((is-good-slot? (remove-if #'null
-                                     (mapcar (lambda (slot-name)
-                                               (allowed-slot-p ',name-symbol slot-name))
-                                             query-slots))))
-             (mango-find ,name-db-name ',name-symbol
-                         (append (list (cons "type" (string-downcase ,name-string))) query))
-             (error (format nil "Can't query against a slot that isn't bound to the class.")))))
-       
-       (defun ,(symb name 'delete) (object)
-         (doc-delete ,name-db-name (,(symb name :-id) object) (,(symb name :rev) object)))
-       
-       (defmacro ,(symb name 'create) (&rest args)
-         (alexandria:with-gensyms (new-instance result)
-           `(let* ((,new-instance (make-instance ',',name-symbol ,@args))
-                   (,result (,',(symb name :put) ,new-instance)))
-              (gethash "id" (yason:parse ,result))))))))
