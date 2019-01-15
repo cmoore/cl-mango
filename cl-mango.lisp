@@ -123,6 +123,8 @@
   (couchdb-request (format nil "/~a/~a" db docid)))
 
 (defun doc-find (db query)
+  "Find a document using the Mango query engine.
+https://blog.couchdb.org/2016/08/03/feature-mango-query/"
   (declare (type string db query))
   (handler-case 
       (couchdb-request (format nil "/~a/_find" db)
@@ -149,6 +151,8 @@
 
 
 (defmacro make-selector (selector &key (limit 100) fields sort skip)
+  "Create a selector for Mango queries.
+https://docs.couchdb.org/en/2.2.0/api/database/find.html#selector-syntax"
   (let ((sink (gensym)))
     `(with-output-to-string (,sink)
        (yason:encode (alist-hash-table (list (cons "limit" ,limit)
