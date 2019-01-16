@@ -1,4 +1,4 @@
-;;; -*- mode: Lisp; Syntax: COMMON-LISP; Package: CL-MANGO; Base: 10 -*-
+;;; -*- mode: Lisp; Syntax: COMMON-LISP; Package: CL-MANGO -*-
 
 (defpackage #:cl-mango
   (:use #:cl
@@ -27,7 +27,6 @@
            #:query-view
            
            #:make-selector
-           #:couchdb-request
 
            #:unexpected-http-response))
 
@@ -40,19 +39,13 @@
   (defparameter *username* nil)
   (defparameter *password* nil)
   
-  ;; If there is a warning about the lack of a usable index
-  ;; for a mango query, send that warning to the console using
-  ;; log4cl
+  ;; If there is a warning about the lack of a usable index for
+  ;; a mango query, send that warning to the console using log4cl
   (defparameter *explain* nil)
 
   (setf drakma:*text-content-types* (list (cons "application" "json")))
-  (setf yason:*parse-json-booleans-as-symbols* t)
-  
-  (defun symb (a b)
-    (intern (format nil "~a-~a" (symbol-name a) (symbol-name b)))))
+  (setf yason:*parse-json-booleans-as-symbols* t))
 
-
-
 (defun make-request-uri (req-path)
   (with-output-to-string (sink)
     (puri:render-uri
@@ -61,21 +54,23 @@
                               :port *port*
                               :path req-path) sink)))
 
-
 (define-condition unexpected-http-response ()
-  ((status-code :initform nil :initarg :status-code :reader status-code)
-   (status-body :initform nil :initarg :body :reader status-body))
+  ((status-code :initform nil
+                :initarg :status-code
+                :reader status-code)
+   (status-body :initform nil
+                :initarg :body
+                :reader status-body))
   (:report (lambda (condition stream)
              (format stream "~a ~a" (status-code condition) (status-body condition)))))
 
-
 (defmacro couchdb-request (path &key
-                                  (parameters nil)
-                                  (content nil)
-                                  (method :get)
-                                  (content-type "application/json")
-                                  (accept "application/json")
-                                  (preserve-uri))
+                                (parameters nil)
+                                (content nil)
+                                (method :get)
+                                (content-type "application/json")
+                                (accept "application/json")
+                                (preserve-uri))
   (alexandria:with-gensyms (body status warning)
     `(multiple-value-bind (,body ,status)
          (drakma:http-request (make-request-uri ,path)
@@ -91,20 +86,24 @@
                               ,@(when content `(:content ,content)))
        (check-type ,status fixnum)
        (if (not (member ,status (list 200 201)))
-           (error 'unexpected-http-response
-                  :status-code ,status
-                  :body ,body)
-           (progn
-             (when *explain*
-               (ignore-errors
-                (let ((,warning (gethash "warning" (yason:parse ,body))))
-                  (when ,warning
-                    (log:info ,warning)
-                    (log:info ,parameters)
-                    (log:info ,content)))))
-             ,body)))))
+         (error 'unexpected-http-response
+                :status-code ,status
+                :body ,body)
+         (progn
+           (when *explain*
+             (let ((,warning (gethash "warning" (yason:parse ,body))))
+               (when ,warning
+                 ,(if (find-package :log4cl)
+                    `(progn
+                       (log:info ,warning)
+                       (log:info ,parameters)
+                       (log:info ,content))
+                    `(progn
+                       (format t ,warning)
+                       (format t ,parameters)
+                       (format t ,content))))))
+           ,body)))))
 
-
 (defun doc-batch-put (db bundle)
   (declare (type string db bundle))
   (couchdb-request (format nil "/~a?batch=ok" db)
@@ -117,20 +116,15 @@
                    :method :post
                    :content bundle))
 
-
 (defun doc-get (db docid)
   (declare (type string db docid))
   (couchdb-request (format nil "/~a/~a" db docid)))
 
 (defun doc-find (db query)
   (declare (type string db query))
-  (handler-case 
-      (couchdb-request (format nil "/~a/_find" db)
-                       :method :post
-                       :content query)
-    (drakma::simple-error (condition)
-      (declare (ignore condition))
-      (doc-find db query))))
+  (couchdb-request (format nil "/~a/_find" db)
+                   :method :post
+                   :content query))
 
 (defun doc-get-all (db &key (all-docs nil))
   (let ((args (if all-docs
@@ -147,7 +141,6 @@
                    :method :post
                    :content bundle))
 
-
 (defmacro make-selector (selector &key (limit 100) fields sort skip)
   (let ((sink (gensym)))
     `(with-output-to-string (,sink)
@@ -162,8 +155,7 @@
                      ,sink))))
 
 (defmacro query-view (db view index &key parameters)
-  `(gethash "rows"
-            (yason:parse
-             (couchdb-request (format nil "/~a/_design/~a/_view/~a" ,db ,view ,index)
-                              ,@(when parameters `(:parameters ,parameters))
-                              :method :get))))
+  `(yason:parse
+    (couchdb-request (format nil "/~a/_design/~a/_view/~a" ,db ,view ,index)
+                     ,@(when parameters `(:parameters ,parameters))
+                     :method :get)))

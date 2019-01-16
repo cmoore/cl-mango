@@ -1,7 +1,6 @@
-;;;; cl-mango.asd
 
 (asdf:defsystem #:cl-mango
-  :description "Query CouchDB 2.0 databases via the Mango engine."
+  :description "A minimalist CouchDB 2.x database library."
   :author "Clint Moore <clint@ivy.io>"
   :license "BSD"
   :serial t
@@ -11,4 +10,3 @@
                #:log4cl)
   
   :components ((:file "cl-mango")))
-
