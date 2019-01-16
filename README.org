@@ -64,3 +64,11 @@ Mango a client library for CouchDB 2.x
                           (cons "something" "something else"))
                     sink)))
 #+END_SRC
+
+
+- query-view database view index &key parameters
+
+
+#+BEGIN_SRC lisp
+(query-view "test" "reports" "by-person" (list (cons "uid" 12")))
+#+END_SRC
