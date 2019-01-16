@@ -33,6 +33,7 @@ Mango a client library for CouchDB 2.x
 - doc-find database selector
 
   [[https://docs.couchdb.org/en/2.2.0/api/database/find.html][Docs]]
+
   Execute a query against <database>.
 
 #+BEGIN_SRC lisp -n +i
