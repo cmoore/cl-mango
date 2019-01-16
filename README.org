@@ -22,7 +22,7 @@ Mango a client library for CouchDB 2.x
   Builds a selector for the query functions.
 
 #+BEGIN_SRC lisp
-  (make-selector '(cons "name" "mango")
+  (make-selector (list (cons "name" "mango"))
                  :limit 10
                  :fields (list "_id" "_rev")
                  :sort '(cons "name" "desc")
@@ -40,7 +40,7 @@ Mango a client library for CouchDB 2.x
 
 - doc-get database document-id
 
-  Get a single document by it's "_id".
+  Get a single document by it's ~_id~.
 
 #+BEGIN_SRC lisp -n +i
   (doc-get "test" "<docid>")
@@ -61,5 +61,6 @@ Mango a client library for CouchDB 2.x
 (doc-put "test" (with-output-to-string (sink)
                   (yason:encode
                     (list (cons "name" "me")
-                          (cons "something" "something else")))))
+                          (cons "something" "something else"))
+                    sink)))
 #+END_SRC
