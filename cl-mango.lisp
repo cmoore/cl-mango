@@ -27,7 +27,8 @@
            #:query-view
            
            #:make-selector
-
+           #:couch-query
+           
            #:unexpected-http-response))
 
 (in-package #:cl-mango)
@@ -43,8 +44,7 @@
   ;; a mango query, send that warning to the console using log4cl
   (defparameter *explain* nil)
 
-  (setf drakma:*text-content-types* (list (cons "application" "json")))
-  (setf yason:*parse-json-booleans-as-symbols* t))
+  (setf drakma:*text-content-types* (list (cons "application" "json"))))
 
 (defun make-request-uri (req-path)
   (with-output-to-string (sink)
@@ -120,11 +120,41 @@
   (declare (type string db docid))
   (couchdb-request (format nil "/~a/~a" db docid)))
 
+(defmacro make-selector (selector &key (limit 100) fields sort skip stale use-index r bookmark update stable execution-stats)
+  (let ((sink (gensym)))
+    `(with-output-to-string (,sink)
+       (yason:encode (alist-hash-table (list (cons "limit" ,limit)
+                                             ,@(when skip
+                                                 `((cons "skip" ,skip)))
+                                             ,@(when sort
+                                                 `((cons "sort" ,sort)))
+                                             ,@(when fields
+                                                 `((cons "fields" ,fields)))
+                                             ,@(when execution-stats
+                                                 `((cons "execution_stats" "true")))
+                                             ,@(when stable
+                                                 `(cons "stable" "true"))
+                                             ,@(when stale
+                                                 `(cons "stale" "true"))
+                                             ,@(when update
+                                                 `(cons "update" "true"))
+                                             ,@(when bookmark
+                                                 `(cons "bookmark" ,bookmark))
+                                             ,@(when r
+                                                 `(cons "r" ,r))
+                                             ,@(when use-index
+                                                 `(cons "use_index" ,use-index))
+                                             (cons "selector" (alist-hash-table ,selector))))
+                     ,sink))))
+
 (defun doc-find (db query)
   (declare (type string db query))
   (couchdb-request (format nil "/~a/_find" db)
                    :method :post
                    :content query))
+
+(defmacro couch-query (selector &rest args)
+  `(doc-find "reddit" (make-selector ,selector ,@args)))
 
 (defun doc-get-all (db &key (all-docs nil))
   (let ((args (if all-docs
@@ -141,21 +171,8 @@
                    :method :post
                    :content bundle))
 
-(defmacro make-selector (selector &key (limit 100) fields sort skip)
-  (let ((sink (gensym)))
-    `(with-output-to-string (,sink)
-       (yason:encode (alist-hash-table (list (cons "limit" ,limit)
-                                             ,@(when skip
-                                                 `((cons "skip" ,skip)))
-                                             ,@(when sort
-                                                 `((cons "sort" ,sort)))
-                                             ,@(when fields
-                                                 `((cons "fields" ,fields)))
-                                             (cons "selector" (alist-hash-table ,selector))))
-                     ,sink))))
 
-(defmacro query-view (db view index &key parameters)
-  `(yason:parse
-    (couchdb-request (format nil "/~a/_design/~a/_view/~a" ,db ,view ,index)
-                     ,@(when parameters `(:parameters ,parameters))
-                     :method :get)))
+(defmacro query-view (db view index parameters)
+  `(couchdb-request (format nil "/~a/_design/~a/_view/~a" ,db ,view ,index)
+                    ,@(when parameters `(:parameters ,parameters))
+                    :method :get))
