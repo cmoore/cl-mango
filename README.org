@@ -1,4 +1,81 @@
 
-Nothing here yet, but there will be soon enough.
-
 [[mango2.jpg]]
+
+
+Mango a client library for CouchDB 2.x
+(it also happens to be the name of CouchDB's alternate query language)
+
+While ~cl-mango~ uses Yason, it's not particularly tied to it.  All responses
+are returned in raw strings so you can use whatever JSON parser/encoder you
+prefer.
+
+* Usage
+
+#+BEGIN_SRC lisp -n +i
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (setf cl-mango:*host* "127.0.0.1")
+  (setf cl-mango:*port* 5984)
+  (setf cl-mango:*scheme* :http) ;; or :https
+  (setf cl-mango:*username* "user")
+  (setf cl-mango:*password* "password"))
+#+END_SRC
+
+
+- make-selector selector &key limit fields sort skip
+
+  Builds a selector for doc-find.
+
+#+BEGIN_SRC lisp -n +i
+  (make-selector (list (cons "name" "mango"))
+                 :limit 10
+                 :fields (list "_id" "_rev")
+                 :sort '(cons "name" "desc")
+                 :skip 100)
+#+END_SRC
+
+
+- doc-find database selector
+
+  [[https://docs.couchdb.org/en/2.2.0/api/database/find.html][Docs]]
+
+  Execute a query against <database>.
+
+#+BEGIN_SRC lisp -n +i
+  (doc-find "test" (make-selector (list (cons "name" "me")))
+#+END_SRC
+
+- doc-get database document-id
+
+  Get a single document by the ~_id~.
+
+#+BEGIN_SRC lisp -n +i
+  (doc-get "test" "<docid>")
+#+END_SRC
+
+- doc-delete database document-id
+
+  Delete a single document.
+
+- doc-put database json-string
+
+  Insert a single document.
+
+#+BEGIN_SRC lisp -n +i
+;; Assuming you use yason, but as long as the
+;; string is well formed JSON, you can use
+;; whatever library you want.
+(doc-put "test" (with-output-to-string (sink)
+                  (yason:encode
+                    (list (cons "name" "me")
+                          (cons "something" "something else"))
+                    sink)))
+#+END_SRC
+
+
+- query-view database view index &key parameters
+
+[[https://docs.couchdb.org/en/2.2.0/ddocs/views/index.html?highlight=views][Docs]]
+
+#+BEGIN_SRC lisp
+(query-view "test" "reports" "by-person" (list (cons "uid" 12")))
+#+END_SRC
