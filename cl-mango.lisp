@@ -189,6 +189,7 @@
                      (symbol-name
                       (closer-mop:slot-definition-name slot))))
                   #+sbcl (sb-mop:class-direct-slots (find-class class))
+                  #+lispworks (harlequin-common-lisp:class-direct-slots (find-class class))
                   #+ccl (ccl:class-direct-slots (find-class class)))
           :test #'string=))
 
