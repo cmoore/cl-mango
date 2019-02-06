@@ -259,14 +259,36 @@
        (defmacro ,(symb name 'find-explicit) (query &rest args)
          `(%json-to-clos (doc-find ,',name-db-name (make-selector ,query ,@args))
                          ',',name-symbol))
+
+       ;; No idea what all this is going to break.
+       (defmacro ,(symb name 'find) (query &rest query-args)
+         `(let ((query-slots (mapcar #'car ,query)))
+            (if (remove-if #'null (mapcar #'(lambda (slot-name)
+                                              (allowed-slot-p ',',name-symbol
+                                                              slot-name))
+                                          query-slots))
+              
+              (let* ((new-query (append (list (cons "type"
+                                                    (string-downcase
+                                                     ',',name-string)))
+                                        ,query))
+                     (selector (make-selector new-query
+                                              ,@(when query-args
+                                                  `(,@query-args)))))
+                (mapcar #'(lambda (doc)
+                            (json-mop:json-to-clos doc ',',name-symbol))
+                        (gethash "docs"
+                                 (yason:parse
+                                  (doc-find ',',name-db-name
+                                            selector))))))))
        
-       (defun ,(symb name 'find) (query)
+       (defun ,(symb name 'old-find) (query)
          (let ((query-slots (mapcar #'car query)))
            (alexandria:if-let
                ((is-good-slot? (remove-if #'null
-                                     (mapcar (lambda (slot-name)
-                                               (allowed-slot-p ',name-symbol slot-name))
-                                             query-slots))))
+                                          (mapcar (lambda (slot-name)
+                                                    (allowed-slot-p ',name-symbol slot-name))
+                                                  query-slots))))
              (mango-find ,name-db-name ',name-symbol
                          (append (list (cons "type" (string-downcase ,name-string))) query))
              (error (format nil "Can't query against a slot that isn't bound to the class.")))))
