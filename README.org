@@ -231,3 +231,9 @@ prefer.
 #+BEGIN_SRC lisp
 (query-view "test" "reports" "by-person" (list (cons "uid" 12")))
 #+END_SRC
+
+
+* Issues, Project Page, etc.
+
+[[https://github.com/cmoore/cl-mango][See github]]
+

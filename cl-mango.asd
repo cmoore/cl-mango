@@ -2,7 +2,7 @@
 (asdf:defsystem #:cl-mango
   :description "A minimalist CouchDB 2.x database client."
   :author "Clint Moore <clint@ivy.io>"
-  :license "BSD"
+  :license "BSD3"
   :serial t
   :depends-on (#:drakma
                #:yason
