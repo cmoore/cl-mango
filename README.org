@@ -83,6 +83,10 @@ prefer.
 
 * (defmango ...)
 
+  (defmango) is a heavy-handed macro that generates an orm-ish interface to a
+  class.  Access to the "_id" and "_rev" fields which are special to CouchDB is
+  through <classname>--id and <classname>-rev.
+
 
 #+BEGIN_SRC lisp -n +i
 
@@ -90,6 +94,136 @@ prefer.
   ((name :json-type :string
          :json-key "name"
          :initarg :name
-         :accessor person-name)))
+         :accessor person-name)
+   (role :json-type :string
+         :json-key "role"
+         :initform "pleb"
+         :initarg :role
+         :accessor person-role))
+=>
+
+(progn
+  (defclass person ()
+    ((cl-mango::-id :initarg :-id
+                    :json-type :string
+                    :json-key "_id"
+                    :accessor person--id)
+     (cl-mango::-rev :initarg :-rev
+                     :json-type :string
+                     :json-key "_rev"
+                     :accessor person-rev)
+     (type :initarg :type
+           :json-type :string
+           :json-key "type"
+           :initform (string-downcase "person"))
+     (name :json-type :string
+           :json-key "name"
+           :initarg :name
+           :accessor person-name)
+     (role :json-type :string
+           :json-key "role"
+           :initform "pleb"
+           :accessor person-role))
+    (:metaclass json-mop:json-serializable-class))
+
+  ;;
+  ;; Important notes about this defclass expansion:
+  ;;
+  ;; - type is special as it tells defmodel what class query results
+  ;;   are supposed to be.  It's filled in automatically.  Unless you
+  ;;   want to see things explode spectacularly, don't change it.
+  ;;
+  ;; - person--id and person-rev are special to CouchDB.  When
+  ;;   creating a new record, *don't* fill in "_rev" as CouchDB
+  ;;   assigns it a new revision tag on insert and update.  The only
+  ;;   time I ever find myself reading the rev slot in practice is
+  ;;   when I need to delete a record, in which you provide an _id and
+  ;;   _rev.
+  ;;
+
+  (defun person-get-all ())
+  
+  ;; 
+  ;; Doesn't actually get all, only the first 100 as it uses
+  ;; couchdb/database/_all_docs?include_docs=true if you truly want
+  ;; all, I would suggest fetching only the "_id" of all with
+  ;; (person-find) and then iterating over that list.  ie.
+  ;; 
+  ;; (person-find (list (cons "name" (alist-hash-table ;; this selector can b
+  ;;                                  (list (cons "$exists" 't)))))
+  ;;              :limit 1000000 ;; or some similarly large number.
+  ;;              :fields (list "_id"))
+  
+  (defun person-get (id))
+
+  ;; Fetch a single person record from the database with the given id.
+  ;; CouchDB enforces that all "_id" values are unique, so there will
+  ;; only ever be a single result from this call.
+  
+  (defun person-put (cl-mango::object))
+  (defun person-update (cl-mango::object))
+
+  ;; These two calls are identical in their implementation, however
+  ;; there are two to help with the differences in adding a record and
+  ;; updating a record in CouchDB.
+  ;; - Adding a record without a value for "_rev" adds a new record to
+  ;;   the database.
+  ;; - Adding a record with a value in "_rev" means, in CouchDB terms,
+  ;;   "This is a new revision of that document."  Note that if you
+  ;;   update a record (ie. you have a value for "_rev") and it's not
+  ;;   the latest and greatest version in the database at that time,
+  ;;   you'll get a document update conflict and cl-mango will throw
+  ;;   the dreaded "unexpected-http-response" condition.  So, yes,
+  ;;   it's a bit redundant, but it helps me, so it's staying.
+  ;;
+  
+  (defmacro person-find (cl-mango::query &rest cl-mango::query-args))
+
+  ;;
+  ;; This is the main interface for querying objects of your class.
+  ;; It takes the same arguments as (make-selector) above and
+  ;; transparently adds (cons "type" "<class name>") to all queries.
+  ;;
+  ;; Notes:
+  ;; - (defmango) does *not* add an index for "type" in the database.
+  ;;   You'll have to go in to the Mango query interface in Fauxton
+  ;;   and add one.  You can also turn on cl-mango:*explain* and it
+  ;;   will complain to you when you've queried against a field that
+  ;;   has no index.
+  ;; - If you plan to sort by a given field, you'll need to add a
+  ;;   Mango index for that as well or cl-mango will throw an
+  ;;   "unexpected-http-response" condition.  It's CouchDB, man, not
+  ;;   me.
+  ;;
+  
+  (person-find (list (cons "name" "bob")))
+  (person-find (list (cons "role" "admin"))
+               :limit 1
+               :skip 100
+               :stable t
+               :update t
+               :use-index "index-name"
+               :r 2
+               :fields (list "_id" "_rev")
+               :sort (list (alexandria:alist-hash-table
+                            (list (cons "name" "desc")))))
+
+  ;;
+  
+  (defun person-delete (cl-mango::object))
+
+  ;;
+  ;; Removes the object from the database.
+  ;;
+
+  (defmacro person-create (&rest cl-mango::args))
+
+  ;; Make a new object and add it to the database.
+  ;; There's nothing special about this, and there's nothing preventing you from
+  ;; using (make-instance).
+
+  (person-put (make-instance 'person :name "bob"))
+  
+  )
 
 #+END_SRC

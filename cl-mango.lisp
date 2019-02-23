@@ -4,7 +4,7 @@
   (:use #:cl
         #:json-mop
         #:log4cl)
-  (:nicknames "mango")
+  (:nicknames "mango" "MANGO")
   (:import-from :alexandria :hash-table-keys
                 :alist-hash-table)
   (:export *host*
@@ -257,11 +257,6 @@
        (defun ,(symb name 'update) (object)
          (mango-update ,name-db-name object))
 
-       (defmacro ,(symb name 'find-explicit) (query &rest args)
-         `(%json-to-clos (doc-find ,',name-db-name (make-selector ,query ,@args))
-                         ',',name-symbol))
-
-       ;; No idea what all this is going to break.
        (defmacro ,(symb name 'find) (query &rest query-args)
          `(let ((query-slots (mapcar #'car ,query)))
             (if (remove-if #'null (mapcar #'(lambda (slot-name)
@@ -282,17 +277,6 @@
                                  (yason:parse
                                   (doc-find ',',name-db-name
                                             selector))))))))
-       
-       (defun ,(symb name 'old-find) (query)
-         (let ((query-slots (mapcar #'car query)))
-           (alexandria:if-let
-               ((is-good-slot? (remove-if #'null
-                                          (mapcar (lambda (slot-name)
-                                                    (allowed-slot-p ',name-symbol slot-name))
-                                                  query-slots))))
-             (mango-find ,name-db-name ',name-symbol
-                         (append (list (cons "type" (string-downcase ,name-string))) query))
-             (error (format nil "Can't query against a slot that isn't bound to the class.")))))
        
        (defun ,(symb name 'delete) (object)
          (doc-delete ,name-db-name (,(symb name :-id) object) (,(symb name :rev) object)))
