@@ -223,7 +223,5 @@ prefer.
   ;; using (make-instance).
 
   (person-put (make-instance 'person :name "bob"))
-  
-  )
 
 #+END_SRC
