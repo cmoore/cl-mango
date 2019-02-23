@@ -55,7 +55,7 @@ prefer.
   (doc-get "test" "<docid>")
 #+END_SRC
 
-- doc-delete database document-id
+- doc-delete database document-id document-rev
 
   Delete a single document.
 
@@ -86,9 +86,7 @@ prefer.
 
 * (defmango ...)
 
-  (defmango) is a heavy-handed macro that generates an orm-ish interface to a
-  class.  Access to the "_id" and "_rev" fields which are special to CouchDB is
-  through <classname>--id and <classname>-rev.
+  (defmango) macro that generates an orm-ish interface to a class.
 
 
 #+BEGIN_SRC lisp -n +i
