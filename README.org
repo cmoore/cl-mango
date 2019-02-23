@@ -25,6 +25,9 @@ prefer.
 
   Builds a selector for doc-find.
 
+  [[https://docs.couchdb.org/en/2.2.0/api/database/find.html#find-selectors][Docs]]
+
+
 #+BEGIN_SRC lisp -n +i
   (make-selector (list (cons "name" "mango"))
                  :limit 10
