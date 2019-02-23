@@ -2,7 +2,7 @@
 [[mango2.jpg]]
 
 
-Mango a client library for CouchDB 2.x
+Mango is a client library for CouchDB 2.x
 (it also happens to be the name of CouchDB's alternate query language)
 
 While ~cl-mango~ uses Yason, it's not particularly tied to it.  All responses
