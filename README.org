@@ -79,3 +79,17 @@ prefer.
 #+BEGIN_SRC lisp
 (query-view "test" "reports" "by-person" (list (cons "uid" 12")))
 #+END_SRC
+
+
+* (defmango ...)
+
+
+#+BEGIN_SRC lisp -n +i
+
+(defmango person people
+  ((name :json-type :string
+         :json-key "name"
+         :initarg :name
+         :accessor person-name)))
+
+#+END_SRC
