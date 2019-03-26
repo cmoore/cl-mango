@@ -30,7 +30,11 @@
            #:couch-query
            
            #:unexpected-http-response
-           #:defmango))
+           #:defmango
+           #:document
+           #:document--id
+           #:document--rev
+           #:document-type))
 
 (in-package #:cl-mango)
 
@@ -106,22 +110,27 @@
            ,body)))))
 
 (defun doc-batch-put (db bundle)
-  (declare (type string db bundle))
+  (check-type db string)
+  (check-type bundle string)
   (couchdb-request (format nil "/~a?batch=ok" db)
                    :method :post
                    :content bundle))
 
 (defun doc-put (db bundle)
-  (declare (type string db bundle))
+  (check-type db string)
+  (check-type bundle string)
   (couchdb-request (format nil "/~a" db)
                    :method :post
                    :content bundle))
 
 (defun doc-get (db docid)
-  (declare (type string db docid))
+  (check-type db string)
+  (check-type docid string)
   (couchdb-request (format nil "/~a/~a" db docid)))
 
-(defmacro make-selector (selector &key (limit 100) fields sort skip stale use-index r bookmark update stable execution-stats)
+(defmacro make-selector (selector &key (limit 100)
+                                  fields sort skip stale use-index
+                                  r bookmark update stable execution-stats)
   (let ((sink (gensym)))
     `(with-output-to-string (,sink)
        (yason:encode (alist-hash-table (list (cons "limit" ,limit)
@@ -149,7 +158,8 @@
                      ,sink))))
 
 (defun doc-find (db query)
-  (declare (type string db query))
+  (check-type db string)
+  (check-type query string)
   (couchdb-request (format nil "/~a/_find" db)
                    :method :post
                    :content query))
@@ -210,8 +220,8 @@
                               (json-mop:encode object sink))))
 
 (defun allowed-slot-p (class name)
-  (declare (type symbol class)
-           (type string name))
+  (check-type class symbol)
+  (check-type name string)
   (member name
           (mapcar (lambda (slot)
                     (string-downcase
@@ -221,6 +231,45 @@
                   #+lispworks (harlequin-common-lisp:class-direct-slots (find-class class))
                   #+ccl (ccl:class-direct-slots (find-class class)))
           :test #'string=))
+
+(defclass document ()
+  ((-id :initarg :-id
+        :json-type :string
+        :json-key "_id"
+        :accessor document--id)
+   (-rev :initarg :-rev
+         :json-type :string
+         :json-key "_rev"
+         :accessor document--rev)
+   (type :initarg :type
+         :json-type :string
+         :json-key "type"
+         :accessor document-type))
+  (:metaclass json-serializable-class))
+
+(defmacro ,(symb name 'find) (query &rest query-args)
+  `(let ((query-slots (mapcar #'car ,query)))
+     (if (remove-if #'null (mapcar #'(lambda (slot-name)
+                                       (allowed-slot-p ',',name-symbol
+                                                       slot-name))
+                                   query-slots))
+              
+       (let* ((new-query (append (list (cons "type"
+                                             (string-downcase
+                                              ',',name-string)))
+                                 ,query))
+              (selector (make-selector new-query
+                                       ,@(when query-args `(,@query-args)))))
+         (mapcar #'(lambda (doc)
+                     (json-mop:json-to-clos doc ',',name-symbol))
+                 (gethash "docs"
+                          (yason:parse
+                           (doc-find ',',name-db-name selector))))))))
+
+(defun class-get-all (class query &rest query-args)
+  
+ )
+
 
 (defmacro defmango (name database slot-definitions)
   (let* ((name-string (format nil "~a" name))
