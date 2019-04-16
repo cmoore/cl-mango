@@ -260,13 +260,13 @@
        (defmacro ,(symb name 'find) (query &rest query-args)
          `(let ((query-slots (mapcar #'car ,query)))
             (if (remove-if #'null (mapcar #'(lambda (slot-name)
-                                              (allowed-slot-p ',',name-symbol
-                                                              slot-name))
-                                          query-slots))
+                                                (allowed-slot-p ',',name-symbol
+                                                                slot-name))
+                                            query-slots))
               
               (let* ((new-query (append (list (cons "type"
                                                     (string-downcase
-                                                     ',',name-string)))
+                                                     ,',name-string)))
                                         ,query))
                      (selector (make-selector new-query
                                               ,@(when query-args
@@ -275,7 +275,7 @@
                             (json-mop:json-to-clos doc ',',name-symbol))
                         (gethash "docs"
                                  (yason:parse
-                                  (doc-find ',',name-db-name
+                                  (doc-find ,',name-db-name
                                             selector))))))))
        
        (defun ,(symb name 'delete) (object)
