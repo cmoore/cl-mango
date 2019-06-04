@@ -92,7 +92,7 @@
                 :body ,body)
          (progn
            (when *explain*
-             (let ((,warning (gethash "warning" (yason:parse ,body))))
+             (let ((,warning (gethash "warning" (yason:parse ,body) nil)))
                (when ,warning
                  ,(if (find-package :log4cl)
                     `(progn
@@ -154,12 +154,12 @@
                    :method :post
                    :content query))
 
-(defmacro couch-query (selector &rest args)
-  `(doc-find "reddit" (make-selector ,selector ,@args)))
+(defmacro couch-query (database selector &rest args)
+  `(doc-find ,database (make-selector ,selector ,@args)))
 
 (defun doc-get-all (db &key (all-docs nil))
   (let ((args (if all-docs
-                  (format nil "/~a/_all_docs?include_docs=true" db)
+                (format nil "/~a/_all_docs?include_docs=true" db)
                   (format nil "/~a/_all_docs" db))))
     (couchdb-request args)))
 
@@ -280,6 +280,13 @@
        
        (defun ,(symb name 'delete) (object)
          (doc-delete ,name-db-name (,(symb name :-id) object) (,(symb name :rev) object)))
+
+       (defun ,(symb name 'from-json) (string)
+         (json-mop:json-to-clos string ',name-symbol))
+       
+       (defun ,(symb name 'to-json) (object)
+         (with-output-to-string (sink)
+           (json-mop:encode object sink)))
        
        (defmacro ,(symb name 'create) (&rest args)
          (alexandria:with-gensyms (new-instance result)
