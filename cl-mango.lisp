@@ -2,8 +2,7 @@
 
 (defpackage #:cl-mango
   (:use #:cl
-        #:json-mop
-        #:log4cl)
+        #:json-mop)
   (:nicknames "mango" "MANGO")
   (:import-from :alexandria :hash-table-keys
                 :alist-hash-table)
@@ -40,9 +39,6 @@
   (defparameter *scheme* :http)
   (defparameter *username* nil)
   (defparameter *password* nil)
-  
-  ;; If there is a warning about the lack of a usable index for
-  ;; a mango query, send that warning to the console using log4cl
   (defparameter *explain* nil)
 
   (setf drakma:*text-content-types* (list (cons "application" "json"))))
@@ -90,20 +86,7 @@
          (error 'unexpected-http-response
                 :status-code ,status
                 :body ,body)
-         (progn
-           (when *explain*
-             (let ((,warning (gethash "warning" (yason:parse ,body) nil)))
-               (when ,warning
-                 ,(if (find-package :log4cl)
-                    `(progn
-                       (log:info ,warning)
-                       (log:info ,parameters)
-                       (log:info ,content))
-                    `(progn
-                       (format t ,warning)
-                       (format t ,parameters)
-                       (format t ,content))))))
-           ,body)))))
+         (progn ,body)))))
 
 (defun doc-batch-put (db bundle)
   (declare (type string db bundle))
