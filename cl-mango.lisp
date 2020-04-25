@@ -5,41 +5,41 @@
         #:json-mop)
   (:nicknames "mango" "MANGO")
   (:import-from :alexandria :hash-table-keys
-                :alist-hash-table)
+                :alist-hash-table :when-let)
   (:export *host*
            *port*
            *scheme*
            *username*
            *password*
            *explain*
-           
+
            #:doc-put
            #:doc-batch-put
-           
+
            #:doc-get
            #:doc-find
            #:doc-get-all
            #:doc-delete
 
            #:bulk-docs
-           
+
            #:query-view
-           
+
            #:make-selector
            #:couch-query
-           
+
            #:unexpected-http-response
            #:defmango))
 
 (in-package #:cl-mango)
 
 (eval-when (:compile-toplevel :load-toplevel)
-  (defparameter *host* nil)
-  (defparameter *port* nil)
-  (defparameter *scheme* :http)
-  (defparameter *username* nil)
-  (defparameter *password* nil)
-  (defparameter *explain* nil)
+  (defvar *host* nil)
+  (defvar *port* nil)
+  (defvar *scheme* :http)
+  (defvar *username* nil)
+  (defvar *password* nil)
+  (defvar *explain* nil)
 
   (setf drakma:*text-content-types* (list (cons "application" "json"))))
 
@@ -86,7 +86,12 @@
          (error 'unexpected-http-response
                 :status-code ,status
                 :body ,body)
-         (progn ,body)))))
+         (progn
+           (when *explain*
+             (when-let ((,warning (gethash "warning" (yason:parse ,body))))
+               ,(when (find-package :log4cl)
+                  `(log:info "~a ~a" ,warning ,content))))
+           (progn ,body))))))
 
 (defun doc-batch-put (db bundle)
   (declare (type string db bundle))
@@ -225,7 +230,7 @@
                            ,@slot-definitions)
          (:metaclass json-serializable-class))
 
-       
+
        (defun ,(symb name 'get-all) ()
          (mango-find ,name-db-name
                      ',name
@@ -246,7 +251,7 @@
                                                 (allowed-slot-p ',',name-symbol
                                                                 slot-name))
                                             query-slots))
-              
+
               (let* ((new-query (append (list (cons "type"
                                                     (string-downcase
                                                      ,',name-string)))
@@ -260,17 +265,17 @@
                                  (yason:parse
                                   (doc-find ,',name-db-name
                                             selector))))))))
-       
+
        (defun ,(symb name 'delete) (object)
          (doc-delete ,name-db-name (,(symb name :-id) object) (,(symb name :rev) object)))
 
        (defun ,(symb name 'from-json) (string)
          (json-mop:json-to-clos string ',name-symbol))
-       
+
        (defun ,(symb name 'to-json) (object)
          (with-output-to-string (sink)
            (json-mop:encode object sink)))
-       
+
        (defmacro ,(symb name 'create) (&rest args)
          (alexandria:with-gensyms (new-instance result)
            `(let* ((,new-instance (make-instance ',',name-symbol ,@args))
