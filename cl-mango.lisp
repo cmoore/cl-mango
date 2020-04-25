@@ -78,7 +78,7 @@
                               ,@(when preserve-uri `(:preserve-uri t))
                               :external-format-in :utf8
                               :external-format-out :utf8
-                              :connection-timeout 60
+                              :connection-timeout 120
                               ,@(when parameters `(:parameters ,parameters))
                               ,@(when content `(:content ,content)))
        (check-type ,status fixnum)
@@ -103,6 +103,7 @@
 (defun doc-get (db docid)
   (declare (type string db docid))
   (couchdb-request (format nil "/~a/~a" db docid)))
+
 
 (defmacro make-selector (selector &key (limit 100) fields sort skip stale use-index r bookmark update stable execution-stats)
   (let ((sink (gensym)))
@@ -274,5 +275,5 @@
        (defmacro ,(symb name 'create) (&rest args)
          (alexandria:with-gensyms (new-instance result)
            `(let* ((,new-instance (make-instance ',',name-symbol ,@args))
-                   (,result (,',(symb name :put) ,new-instance)))
+                   (,result (mango-update ',',name-db-name ,new-instance)))
               (gethash "id" (yason:parse ,result))))))))
