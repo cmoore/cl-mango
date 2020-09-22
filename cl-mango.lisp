@@ -86,12 +86,7 @@
          (error 'unexpected-http-response
                 :status-code ,status
                 :body ,body)
-         (progn
-           (when *explain*
-             (when-let ((,warning (gethash "warning" (yason:parse ,body))))
-               ,(when (find-package :log4cl)
-                  `(log:info "~a ~a" ,warning ,content))))
-           (progn ,body))))))
+         (progn ,body)))))
 
 (defun doc-batch-put (db bundle)
   (declare (type string db bundle))
