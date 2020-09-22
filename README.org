@@ -77,24 +77,24 @@ Mango is a client library for CouchDB 2.x
   ;;
 
   (defun person-get-all ())
-  
-  ;; 
+
+  ;;
   ;; Doesn't actually get all, only the first 100 as it uses
   ;; couchdb/database/_all_docs?include_docs=true if you truly want
   ;; all, I would suggest fetching only the "_id" of all with
   ;; (person-find) and then iterating over that list.  ie.
-  ;; 
+  ;;
   ;; (person-find (list (cons "name" (alist-hash-table ;; this selector can b
   ;;                                  (list (cons "$exists" 't)))))
   ;;              :limit 1000000 ;; or some similarly large number.
   ;;              :fields (list "_id"))
-  
+
   (defun person-get (id))
 
   ;; Fetch a single person record from the database with the given id.
   ;; CouchDB enforces that all "_id" values are unique, so there will
   ;; only ever be a single result from this call.
-  
+
   (defun person-put (cl-mango::object))
   (defun person-update (cl-mango::object))
 
@@ -111,7 +111,7 @@ Mango is a client library for CouchDB 2.x
   ;;   the dreaded "unexpected-http-response" condition.  So, yes,
   ;;   it's a bit redundant, but it helps me, so it's staying.
   ;;
-  
+
   (defmacro person-find (cl-mango::query &rest cl-mango::query-args))
 
   ;;
@@ -122,15 +122,13 @@ Mango is a client library for CouchDB 2.x
   ;; Notes:
   ;; - (defmango) does *not* add an index for "type" in the database.
   ;;   You'll have to go in to the Mango query interface in Fauxton
-  ;;   and add one.  You can also turn on cl-mango:*explain* and it
-  ;;   will complain to you when you've queried against a field that
-  ;;   has no index.
+  ;;   and add one.
   ;; - If you plan to sort by a given field, you'll need to add a
   ;;   Mango index for that as well or cl-mango will throw an
   ;;   "unexpected-http-response" condition.  It's CouchDB, man, not
   ;;   me.
   ;;
-  
+
   (person-find (list (cons "name" "bob")))
   (person-find (list (cons "role" "admin"))
                :limit 1
@@ -144,7 +142,7 @@ Mango is a client library for CouchDB 2.x
                             (list (cons "name" "desc")))))
 
   ;;
-  
+
   (defun person-delete (cl-mango::object))
 
   ;;
@@ -233,4 +231,3 @@ Mango is a client library for CouchDB 2.x
 * Issues, Project Page, etc.
 
 [[https://github.com/cmoore/cl-mango][See github]]
-
